@@ -1,0 +1,23 @@
+spring:
+  r2dbc:
+    url:
+    username:
+    password:
+  flyway:
+    url:
+    user:
+    password:
+
+atto:
+  network: LOCAL
+  node:
+    base-url:
+  work:
+    base-url:
+  wallet:
+    cha-cha20-encryption-key: '0000000000000000000000000000000000000000000000000000000000000000'
+
+logging:
+  level:
+    cash.atto: DEBUG
+    org.springframework.boot.autoconfigure: INFO

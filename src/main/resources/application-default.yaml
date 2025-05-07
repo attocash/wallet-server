@@ -1,0 +1,7 @@
+spring:
+  mvc:
+    log-resolved-exception: true
+
+server:
+  error:
+    include-stacktrace: always
