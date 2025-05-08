@@ -1,5 +1,5 @@
 spring:
-  application.name: miner
+  application.name: wallet-server
   main.banner-mode: off
   threads:
     virtual:
