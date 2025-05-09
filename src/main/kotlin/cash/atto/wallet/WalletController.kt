@@ -3,6 +3,8 @@ package cash.atto.wallet
 import cash.atto.ChaCha20
 import cash.atto.commons.AttoMnemonic
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.flow.Flow
@@ -42,6 +44,11 @@ class WalletController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletState::class),
+                    ),
+                ],
             ),
         ],
     )
@@ -54,6 +61,11 @@ class WalletController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletState::class),
+                    ),
+                ],
             ),
         ],
     )
@@ -83,11 +95,24 @@ class WalletController(
     @Operation(
         summary = "Import existing wallet",
         description =
-            "Imports a wallet from its 24‑word mnemonic. You may supply your own encryptionKey; if omitted, " +
+            "Imports a wallet from its 24‑word mnemonic. You may supply your own Cha Cha 20 encryption key; if omitted, " +
                 "the server generates one. Losing either the mnemonic or key means permanent loss of access.",
+        requestBody = io.swagger.v3.oas.annotations.parameters.RequestBody(
+            required = true,
+            content = [
+                Content(
+                    schema = Schema(implementation = WalletImportRequest::class)
+                )
+            ]
+        ),
         responses = [
             ApiResponse(
                 responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletCreationResponse::class),
+                    ),
+                ],
             ),
         ],
     )
@@ -117,6 +142,11 @@ class WalletController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletCreationResponse::class),
+                    ),
+                ],
             ),
         ],
     )
@@ -164,6 +194,7 @@ class WalletController(
         UNLOCKED,
     }
 
+    @Schema(name = "WalletState", description = "View of the current wallet state")
     @Serializable
     data class WalletState(
         val name: String,
@@ -180,20 +211,43 @@ class WalletController(
         return WalletState(name, lockState)
     }
 
+    @Schema(name = "WalletImportRequest", description = "Represents a request to import an wallet")
     @Serializable
     data class WalletImportRequest(
         val mnemonic: String,
+        @Schema(
+            description =
+                "Optional 32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest. " +
+                    "If not provided the wallet will generate one.",
+            example = "0000000000000000000000000000000000000000000000000000000000000000",
+        )
         val encryptionKey: String? = null,
     )
 
+    @Schema(name = "WalletCreationResponse", description = "Represents a request to create an wallet")
     @Serializable
     data class WalletCreationResponse(
+        @Schema(
+            description = "24 words mnemonic",
+            example =
+                "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
+                    "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
+        )
         val mnemonic: String,
+        @Schema(
+            description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
+            example = "0000000000000000000000000000000000000000000000000000000000000000",
+        )
         val encryptionKey: String,
     )
 
+    @Schema(name = "WalletUnlockRequest", description = "Represents a request to unlock the wallet")
     @Serializable
     data class WalletUnlockRequest(
+        @Schema(
+            description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
+            example = "0000000000000000000000000000000000000000000000000000000000000000",
+        )
         val encryptionKey: String,
     )
 }

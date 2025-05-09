@@ -2,7 +2,6 @@ package cash.atto.account
 
 import cash.atto.CacheSupport
 import cash.atto.account.AccountController.AccountCreationResponse
-import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
@@ -31,12 +30,11 @@ class AccountStepDefinition(
     private val mockNode: AttoMockNode,
 ) : CacheSupport {
     var address: String? = null
-    var entry: AttoAccountEntry? = null
 
     @When("a new address is created in {word} wallet")
     fun create(walletName: String) {
         val response = testRestTemplate.postForObject("/wallets/$walletName/accounts", null, AccountCreationResponse::class.java)
-        address = response.address
+        address = response.address.path
     }
 
     @When("address is disabled")
@@ -70,8 +68,8 @@ class AccountStepDefinition(
     @When("account sends {word} attos")
     fun send(amount: String) {
         val receiverAddress = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32)))
-        val request = AccountController.SendRequest(receiverAddress.path, AttoAmount.from(AttoUnit.ATTO, amount))
-        entry = testRestTemplate.postForObject("/wallets/accounts/$address/transactions/SEND", request, AttoAccountEntry::class.java)
+        val request = AccountController.SendRequest(receiverAddress, AttoAmount.from(AttoUnit.ATTO, amount))
+        testRestTemplate.postForObject("/wallets/accounts/$address/transactions/SEND", request, AccountController.AccountEntry::class.java)
     }
 
     @When("account representative changes to {word}")
@@ -79,8 +77,12 @@ class AccountStepDefinition(
         val publicKey = representativeName.toRepresentativePublicKey()
 
         val representativeAddress = AttoAddress(AttoAlgorithm.V1, publicKey)
-        val request = AccountController.ChangeRequest(representativeAddress.path)
-        entry = testRestTemplate.postForObject("/wallets/accounts/$address/transactions/CHANGE", request, AttoAccountEntry::class.java)
+        val request = AccountController.ChangeRequest(representativeAddress)
+        testRestTemplate.postForObject(
+            "/wallets/accounts/$address/transactions/CHANGE",
+            request,
+            AccountController.AccountEntry::class.java
+        )
     }
 
     private fun getAccount(): Account = testRestTemplate.getForObject("/wallets/accounts/$address", Account::class.java)
@@ -141,6 +143,5 @@ class AccountStepDefinition(
 
     override fun clear() {
         address = null
-        entry = null
     }
 }

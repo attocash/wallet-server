@@ -283,7 +283,7 @@ class AccountService(
             subjectPublicKey = receiverAddress.publicKey,
             previousBalance = balance,
             balance = transaction.block.balance,
-            timestamp = transaction.block.timestamp
+            timestamp = transaction.block.timestamp,
         )
     }
 
@@ -307,7 +307,7 @@ class AccountService(
             subjectPublicKey = representativeAddress.publicKey,
             previousBalance = transaction.block.balance,
             balance = transaction.block.balance,
-            timestamp = transaction.block.timestamp
+            timestamp = transaction.block.timestamp,
         )
     }
 
@@ -353,14 +353,13 @@ class AccountService(
         val mnemonic: AttoMnemonic?,
     )
 
-    private fun AttoBlock.toBlockType(): AttoBlockType {
-        return when (this) {
+    private fun AttoBlock.toBlockType(): AttoBlockType =
+        when (this) {
             is AttoOpenBlock -> AttoBlockType.OPEN
             is AttoChangeBlock -> AttoBlockType.CHANGE
             is AttoReceiveBlock -> AttoBlockType.RECEIVE
             is AttoSendBlock -> AttoBlockType.SEND
         }
-    }
 
     private fun WalletAccount.requiredAccountNotNull() {
         if (account == null) {
