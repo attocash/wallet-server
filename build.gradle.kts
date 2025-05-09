@@ -6,7 +6,7 @@ plugins {
     kotlin("plugin.spring") version kotlinVersion
     kotlin("plugin.jpa") version kotlinVersion
 
-    id("org.springframework.boot") version "3.3.5"
+    id("org.springframework.boot") version "3.4.5"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
@@ -32,7 +32,7 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "2203c4f-SNAPSHOT"
+    val commonsVersion = "4.0.0-SNAPSHOT"
     val cucumberVersion = "7.22.1"
     val springdocVersion = "2.6.0"
 

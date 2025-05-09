@@ -8,11 +8,11 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
-import cash.atto.commons.AttoTransaction
 import cash.atto.commons.AttoVersion
 import cash.atto.commons.node.AttoNodeOperations
 import cash.atto.commons.serialiazer.AttoAddressAsStringSerializer
 import cash.atto.commons.serialiazer.InstantMillisSerializer
+import cash.atto.commons.toAttoHeight
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
@@ -153,7 +153,7 @@ class AccountController(
     suspend fun change(
         @PathVariable address: String,
         @RequestBody request: ChangeRequest,
-    ): AttoTransaction = accountService.change(AttoAddress.parsePath(address), AttoAddress.parsePath(request.representativeAddress))
+    ): AttoAccountEntry = accountService.change(AttoAddress.parsePath(address), AttoAddress.parsePath(request.representativeAddress))
 
     @PostMapping("/wallets/accounts/{address}/transactions/SEND")
     @Operation(
@@ -167,7 +167,19 @@ class AccountController(
     suspend fun send(
         @PathVariable address: String,
         @RequestBody request: SendRequest,
-    ): AttoTransaction = accountService.send(AttoAddress.parsePath(address), AttoAddress.parsePath(request.receiverAddress), request.amount)
+    ): AttoAccountEntry {
+        val lastHeight =
+            request.lastHeight ?:
+            accountService.getAccountDetails(AttoAddress.parsePath(address))?.height ?:
+            1UL.toAttoHeight()
+
+        return accountService.send(
+            AttoAddress.parsePath(address),
+            AttoAddress.parsePath(request.receiverAddress),
+            request.amount,
+            lastHeight,
+        )
+    }
 
     @OptIn(FlowPreview::class)
     @PostMapping("/wallets/accounts/entries")
@@ -244,6 +256,7 @@ class AccountController(
     data class SendRequest(
         val receiverAddress: String,
         val amount: AttoAmount,
+        val lastHeight: AttoHeight? = null,
     )
 
     @Serializable

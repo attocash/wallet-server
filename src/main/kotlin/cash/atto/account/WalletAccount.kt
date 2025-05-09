@@ -5,11 +5,14 @@ import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
 import java.util.concurrent.atomic.AtomicBoolean
 
 class WalletAccount(
@@ -56,7 +59,6 @@ class WalletAccount(
     }
 
     suspend fun change(representativeAddress: AttoAddress): AttoTransaction {
-        requiredAccountNotNull()
         mutex.withLock {
             val (block, updatedAccount) = account!!.change(representativeAddress.algorithm, representativeAddress.publicKey)
             return publish(block, updatedAccount)
@@ -66,13 +68,22 @@ class WalletAccount(
     suspend fun send(
         receiverAddress: AttoAddress,
         amount: AttoAmount,
+        lastHeight: AttoHeight,
     ): AttoTransaction {
-        requiredAccountNotNull()
         mutex.withLock {
-            if (amount > (account?.balance ?: AttoAmount.MIN)) {
+            val account = account!!
+
+            if (account.height != lastHeight) {
+                throw ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Given height for $address does not match last known height ${account.height}. List all the newest transactions and try again!",
+                )
+            }
+
+            if (amount > account.balance) {
                 throw IllegalArgumentException("Not enough balance.")
             }
-            val (block, updatedAccount) = account!!.send(receiverAddress.algorithm, receiverAddress.publicKey, amount)
+            val (block, updatedAccount) = account.send(receiverAddress.algorithm, receiverAddress.publicKey, amount)
             return publish(block, updatedAccount)
         }
     }
@@ -84,9 +95,5 @@ class WalletAccount(
         val transaction = transactionPublisher.invoke(block)
         account = updatedAccount
         return transaction
-    }
-
-    private fun requiredAccountNotNull() {
-        require(account != null) { "This operation is not allowed for not initialized account" }
     }
 }

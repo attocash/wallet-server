@@ -3,11 +3,18 @@ package cash.atto.account
 import cash.atto.ApplicationProperties
 import cash.atto.CacheSupport
 import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
+import cash.atto.commons.AttoBlockType
+import cash.atto.commons.AttoChangeBlock
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoMnemonic
+import cash.atto.commons.AttoOpenBlock
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.AttoWork
@@ -259,19 +266,49 @@ class AccountService(
         address: AttoAddress,
         receiverAddress: AttoAddress,
         amount: AttoAmount,
-    ): AttoTransaction {
-        logger.debug { "Sending from $address to $receiverAddress $amount" }
+        lastHeight: AttoHeight,
+    ): AttoAccountEntry {
+        logger.info { "Sending from $address to $receiverAddress $amount" }
         val walletAccount = getWalletAccount(address)
-        return walletAccount.send(receiverAddress, amount)
+        walletAccount.requiredAccountNotNull()
+        val balance = walletAccount.account!!.balance
+        val transaction = walletAccount.send(receiverAddress, amount, lastHeight)
+        return AttoAccountEntry(
+            hash = transaction.hash,
+            algorithm = transaction.block.algorithm,
+            publicKey = transaction.block.publicKey,
+            height = transaction.height,
+            blockType = transaction.block.toBlockType(),
+            subjectAlgorithm = receiverAddress.algorithm,
+            subjectPublicKey = receiverAddress.publicKey,
+            previousBalance = balance,
+            balance = transaction.block.balance,
+            timestamp = transaction.block.timestamp
+        )
     }
 
     suspend fun change(
         address: AttoAddress,
         representativeAddress: AttoAddress,
-    ): AttoTransaction {
-        logger.debug { "Changing $address representative to $representativeAddress" }
+    ): AttoAccountEntry {
+        logger.info { "Changing $address representative to $representativeAddress" }
         val walletAccount = getWalletAccount(address)
-        return walletAccount.change(representativeAddress)
+
+        walletAccount.requiredAccountNotNull()
+
+        val transaction = walletAccount.change(representativeAddress)
+        return AttoAccountEntry(
+            hash = transaction.hash,
+            algorithm = transaction.block.algorithm,
+            publicKey = transaction.block.publicKey,
+            height = transaction.height,
+            blockType = transaction.block.toBlockType(),
+            subjectAlgorithm = representativeAddress.algorithm,
+            subjectPublicKey = representativeAddress.publicKey,
+            previousBalance = transaction.block.balance,
+            balance = transaction.block.balance,
+            timestamp = transaction.block.timestamp
+        )
     }
 
     private suspend fun getWork(block: AttoBlock): AttoWork {
@@ -315,4 +352,22 @@ class AccountService(
     private data class MnemonicHolder(
         val mnemonic: AttoMnemonic?,
     )
+
+    private fun AttoBlock.toBlockType(): AttoBlockType {
+        return when (this) {
+            is AttoOpenBlock -> AttoBlockType.OPEN
+            is AttoChangeBlock -> AttoBlockType.CHANGE
+            is AttoReceiveBlock -> AttoBlockType.RECEIVE
+            is AttoSendBlock -> AttoBlockType.SEND
+        }
+    }
+
+    private fun WalletAccount.requiredAccountNotNull() {
+        if (account == null) {
+            throw ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Account $address is not open yet. Please receive some attos before try again",
+            )
+        }
+    }
 }

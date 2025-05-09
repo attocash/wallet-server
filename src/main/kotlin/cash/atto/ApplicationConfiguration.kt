@@ -5,15 +5,11 @@ import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.codec.ClientCodecConfigurer
-import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.web.reactive.config.WebFluxConfigurer
-import org.springframework.web.reactive.function.client.ExchangeStrategies
 
 @Configuration
 @EnableScheduling
-class ApplicationConfiguration : WebFluxConfigurer {
+class ApplicationConfiguration {
     @Bean
     fun walletServerOpenAPI(): OpenAPI =
         OpenAPI()
@@ -31,22 +27,4 @@ class ApplicationConfiguration : WebFluxConfigurer {
                     .description("Docs")
                     .url("https://atto.cash/docs"),
             )
-
-    override fun configureHttpMessageCodecs(configurer: ServerCodecConfigurer) {
-        configurer
-            .defaultCodecs()
-        configurer
-            .defaultCodecs()
-    }
-
-    @Bean
-    fun exchangeStrategies(): ExchangeStrategies =
-        ExchangeStrategies
-            .builder()
-            .codecs { configurer: ClientCodecConfigurer ->
-                configurer
-                    .defaultCodecs()
-                configurer
-                    .defaultCodecs()
-            }.build()
 }
