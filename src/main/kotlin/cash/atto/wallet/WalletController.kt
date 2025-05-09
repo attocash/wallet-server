@@ -97,14 +97,15 @@ class WalletController(
         description =
             "Imports a wallet from its 24‑word mnemonic. You may supply your own Cha Cha 20 encryption key; if omitted, " +
                 "the server generates one. Losing either the mnemonic or key means permanent loss of access.",
-        requestBody = io.swagger.v3.oas.annotations.parameters.RequestBody(
-            required = true,
-            content = [
-                Content(
-                    schema = Schema(implementation = WalletImportRequest::class)
-                )
-            ]
-        ),
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                required = true,
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletImportRequest::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",

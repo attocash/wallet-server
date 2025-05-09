@@ -21,18 +21,18 @@ class Account(
     val address: String,
     @Schema(
         description = "The database version of the row used for optimistic locking",
-        example = "1"
+        example = "1",
     )
     @Version
     val version: Long? = null,
     @Schema(
         description = "The index of the account in the mnemonic",
-        example = "1"
+        example = "1",
     )
     val accountIndex: Long,
     @Schema(
         description = "Wallet name",
-        example = "treasury"
+        example = "treasury",
     )
     val walletName: String,
     @JsonIgnore
@@ -41,7 +41,7 @@ class Account(
     val updatedAt: Instant? = null,
     @Schema(
         description = "Timestamp when the account was disabled",
-        example = "treasury"
+        example = "treasury",
     )
     var disabledAt: Instant? = null,
 ) : Persistable<String> {

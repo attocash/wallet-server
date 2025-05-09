@@ -81,7 +81,7 @@ class AccountStepDefinition(
         testRestTemplate.postForObject(
             "/wallets/accounts/$address/transactions/CHANGE",
             request,
-            AccountController.AccountEntry::class.java
+            AccountController.AccountEntry::class.java,
         )
     }
 

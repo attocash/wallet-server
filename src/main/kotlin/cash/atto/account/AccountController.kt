@@ -174,14 +174,15 @@ class AccountController(
     @PostMapping("/wallets/accounts/{address}/transactions/SEND")
     @Operation(
         summary = "Send to target address",
-        requestBody = io.swagger.v3.oas.annotations.parameters.RequestBody(
-            required = true,
-            content = [
-                Content(
-                    schema = Schema(implementation = SendRequest::class)
-                )
-            ]
-        ),
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                required = true,
+                content = [
+                    Content(
+                        schema = Schema(implementation = SendRequest::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -200,12 +201,13 @@ class AccountController(
         val lastHeight =
             request.lastHeight ?: accountService.getAccountDetails(AttoAddress.parsePath(address))?.height ?: 1UL.toAttoHeight()
 
-        return accountService.send(
-            AttoAddress.parsePath(address),
-            request.receiverAddress,
-            request.amount,
-            lastHeight,
-        ).toAccountEntry()
+        return accountService
+            .send(
+                AttoAddress.parsePath(address),
+                request.receiverAddress,
+                request.amount,
+                lastHeight,
+            ).toAccountEntry()
     }
 
     @OptIn(FlowPreview::class)
@@ -284,7 +286,7 @@ class AccountController(
         @field:Schema(
             description = "The address of the new representative account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String"
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val representativeAddress: AttoAddress,
@@ -295,7 +297,7 @@ class AccountController(
         @field:Schema(
             description = "The address of the receiving account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String"
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val receiverAddress: AttoAddress,
@@ -304,7 +306,7 @@ class AccountController(
         @field:Schema(
             description = "Optional last known height. Used to avoid double sent",
             example = "1",
-            type = "Long"
+            type = "Long",
         )
         val lastHeight: AttoHeight? = null,
     )
@@ -330,7 +332,7 @@ class AccountController(
         @field:Schema(
             description = "The address of the account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String"
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val address: AttoAddress,
@@ -343,7 +345,7 @@ class AccountController(
         @field:Schema(
             description = "Last transaction hash",
             example = "70F9406609BCB2E3E18F22BD0839C95E5540E95489DC6F24DBF6A1F7CFD83A92",
-            type = "String"
+            type = "String",
         )
         val lastTransactionHash: AttoHash,
         @field:Schema(description = "Timestamp of the last transaction", example = "1705517157478", type = "Long")
@@ -352,7 +354,7 @@ class AccountController(
         @field:Schema(
             description = "Representative algorithm",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String"
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val representativeAddress: AttoAddress,
@@ -375,13 +377,13 @@ class AccountController(
         @field:Schema(
             description = "Unique hash of the block",
             example = "68BA42CDD87328380BE32D5AA6DBB86E905B50273D37AF1DE12F47B83A001154",
-            type = "String"
+            type = "String",
         )
         val hash: AttoHash,
         @field:Schema(
             description = "Address of the account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String"
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val address: AttoAddress,
