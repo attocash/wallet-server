@@ -1,6 +1,7 @@
 package cash.atto.wallet
 
 import cash.atto.commons.AttoMnemonic
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.springframework.core.annotation.Order
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.Version
@@ -14,7 +15,7 @@ import java.time.Instant
 interface WalletRepository : CoroutineCrudRepository<Wallet, String>
 
 suspend fun WalletRepository.getById(name: String): Wallet =
-    findById(name) ?: throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Wallet with $name not found")
+    findById(name) ?: throw ResponseStatusException(HttpStatus.NOT_FOUND, "Wallet with $name not found")
 
 class Wallet(
     @Id
@@ -26,8 +27,10 @@ class Wallet(
     val persistedAt: Instant? = null,
     val updatedAt: Instant? = null,
 ) : Persistable<String> {
+    @JsonIgnore
     override fun getId(): String = name
 
+    @JsonIgnore
     override fun isNew(): Boolean = persistedAt == null
 
     override fun equals(other: Any?): Boolean {

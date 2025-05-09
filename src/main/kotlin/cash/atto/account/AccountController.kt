@@ -3,15 +3,24 @@ package cash.atto.account
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoBlockType
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoVersion
 import cash.atto.commons.node.AttoNodeOperations
+import cash.atto.commons.serialiazer.AttoAddressAsStringSerializer
+import cash.atto.commons.serialiazer.InstantMillisSerializer
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.timeout
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -56,6 +65,21 @@ class AccountController(
         )
     }
 
+    @GetMapping("/wallets/{walletName}/accounts")
+    @Operation(
+        summary = "Get accounts for given wallet",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+            ),
+        ],
+    )
+    fun findAll(
+        @PathVariable walletName: String,
+    ): Flow<Account> {
+        return accountRepository.findAllByWalletName(walletName)
+    }
+
     @GetMapping("/wallets/accounts/{address}")
     @Operation(
         summary = "Disable an account",
@@ -86,7 +110,8 @@ class AccountController(
     )
     suspend fun getDetails(
         @PathVariable address: String,
-    ): ResponseEntity<AttoAccount> = ResponseEntity.ofNullable(accountService.getAccount(AttoAddress.parsePath(address)))
+    ): ResponseEntity<AccountDetails> =
+        ResponseEntity.ofNullable(accountService.getAccountDetails(AttoAddress.parsePath(address))?.toAccountDetails())
 
     @PostMapping("/wallets/accounts/{address}/states/DISABLED")
     @Operation(
@@ -157,17 +182,19 @@ class AccountController(
         ],
     )
     suspend fun search(
-        @RequestBody request: HeightSearch?,
-    ): Flow<AttoAccountEntry> {
+        @RequestBody(required = false) request: HeightSearch?,
+    ): Flow<AccountEntry> {
         val request = request?.toNodeSearch() ?: createNodeSearch()
-        return nodeOperations.accountEntryStream(request).timeout(60.seconds)
+        return nodeOperations.accountEntryStream(request)
+            .timeout(60.seconds)
+            .map { it.toAccountEntry() }
     }
 
     private fun HeightSearch.toNodeSearch(): AttoNodeOperations.HeightSearch {
         val nodeSearch =
             search.mapNotNull {
                 val address = AttoAddress.parsePath(it.address)
-                val toHeight = accountService.getAccount(address)?.height?.value ?: 1UL
+                val toHeight = accountService.getAccountDetails(address)?.height?.value ?: 1UL
 
                 if (toHeight <= it.fromHeight) {
                     return@mapNotNull null
@@ -189,7 +216,7 @@ class AccountController(
                 val fromHeight = 1UL
                 val toHeight = it.value?.height?.value ?: 1UL
 
-                if (fromHeight <= toHeight) {
+                if (fromHeight > toHeight) {
                     return@mapNotNull null
                 }
 
@@ -230,4 +257,60 @@ class AccountController(
     data class HeightSearch(
         val search: List<AccountHeightSearch>,
     )
+
+    @Serializable
+    data class AccountDetails(
+        @Serializable(with = AttoAddressAsStringSerializer::class)
+        val address: AttoAddress,
+        val version: AttoVersion,
+        val algorithm: AttoAlgorithm,
+        val height: AttoHeight,
+        val balance: AttoAmount,
+        val lastTransactionHash: AttoHash,
+        @Serializable(with = InstantMillisSerializer::class)
+        val lastTransactionTimestamp: Instant,
+        @Serializable(with = AttoAddressAsStringSerializer::class)
+        val representativeAddress: AttoAddress,
+    )
+
+    private fun AttoAccount.toAccountDetails(): AccountDetails {
+        return AccountDetails(
+            address = this.address,
+            version = this.version,
+            algorithm = this.algorithm,
+            height = this.height,
+            balance = this.balance,
+            lastTransactionHash = this.lastTransactionHash,
+            lastTransactionTimestamp = this.lastTransactionTimestamp,
+            representativeAddress = this.representativeAddress,
+        )
+    }
+
+    @Serializable
+    data class AccountEntry(
+        val hash: AttoHash,
+        @Serializable(with = AttoAddressAsStringSerializer::class)
+        val address: AttoAddress,
+        val height: AttoHeight,
+        val blockType: AttoBlockType,
+        @Serializable(with = AttoAddressAsStringSerializer::class)
+        val subjectAddress: AttoAddress,
+        val previousBalance: AttoAmount,
+        val balance: AttoAmount,
+        @Serializable(with = InstantMillisSerializer::class)
+        val timestamp: Instant,
+    )
+
+    private fun AttoAccountEntry.toAccountEntry(): AccountEntry {
+        return AccountEntry(
+            hash = this.hash,
+            address = this.address,
+            height = this.height,
+            blockType = this.blockType,
+            subjectAddress = this.subjectAddress,
+            previousBalance = this.previousBalance,
+            balance = this.balance,
+            timestamp = this.timestamp
+        )
+    }
 }

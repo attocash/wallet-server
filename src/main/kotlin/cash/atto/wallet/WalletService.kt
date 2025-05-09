@@ -27,6 +27,10 @@ class WalletService(
         mnemonic: AttoMnemonic,
         encryptionKey: String,
     ) {
+        if (repository.findById(name) != null) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Wallet with name $name already exists")
+        }
+
         val encryptedEntropy = ChaCha20.encrypt(mnemonic.toEntropy(), encryptionKey)
         val encryptedEncryptionKey = ChaCha20.encrypt(encryptionKey.fromHexToByteArray(), properties.chaCha20EncryptionKey!!)
 
