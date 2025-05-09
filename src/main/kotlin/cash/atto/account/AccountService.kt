@@ -6,9 +6,11 @@ import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoMnemonic
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoWork
 import cash.atto.commons.node.AttoNodeOperations
 import cash.atto.commons.toPrivateKey
 import cash.atto.commons.toSeed
@@ -18,6 +20,7 @@ import cash.atto.wallet.WalletEvent
 import cash.atto.wallet.WalletService
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -26,9 +29,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -41,6 +45,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.web.server.ResponseStatusException
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.seconds
 
 @Service
@@ -55,7 +60,7 @@ class AccountService(
     private val logger = KotlinLogging.logger {}
 
     private val mutex = Mutex()
-    private val mnemonicMap = ConcurrentHashMap<String, AttoMnemonic?>()
+    private val mnemonicMap = ConcurrentHashMap<String, MnemonicHolder>()
     private val walletAccountMap = ConcurrentHashMap<AttoAddress, WalletAccount>()
 
     private val scope = CoroutineScope(Dispatchers.Default)
@@ -75,7 +80,7 @@ class AccountService(
             )
         }
 
-        return mnemonicMap[walletName] ?: throw ResponseStatusException(
+        return mnemonicMap[walletName]?.mnemonic ?: throw ResponseStatusException(
             HttpStatus.BAD_REQUEST,
             "Wallet $walletName is locked",
         )
@@ -93,12 +98,14 @@ class AccountService(
             .map { it.key to it.value.account }
             .toMap()
 
-    fun getAccount(address: AttoAddress): AttoAccount? = walletAccountMap[address]?.account
+    fun getAccountDetails(address: AttoAddress): AttoAccount? = walletAccountMap[address]?.account
 
     @PostConstruct
     fun init() {
         runBlocking {
-            mnemonicMap.putAll(walletService.getMnemonicMap())
+            mnemonicMap.putAll(walletService.getMnemonicMap().map { it.key to MnemonicHolder(it.value) }.toList())
+
+            logger.info("Loaded ${mnemonicMap.size} wallets")
 
             val accounts = accountRepository.findAll().toList()
 
@@ -107,9 +114,11 @@ class AccountService(
                     .account(accounts.map { AttoAddress.parsePath(it.address) })
                     .associateBy { it.address }
 
+            logger.info("Found ${accounts.size} addresses")
+
             accountRepository.findAll().collect { account ->
                 val walletAccount = account.toWalletAccount()
-                if (account.disabledAt == null) {
+                if (account.disabledAt != null) {
                     walletAccount.disable()
                 }
                 attoAccountMap[walletAccount.address]?.let {
@@ -118,42 +127,45 @@ class AccountService(
                 walletAccountMap[walletAccount.address] = walletAccount
             }
 
-            refreshActiveAddresses()
+            logger.info("Loaded ${accounts.size} addresses")
+
             startReceiver()
         }
     }
 
     private fun refreshActiveAddresses() {
-        activeAddresses.value =
+        val newActiveAddresses =
             walletAccountMap.values
                 .filter { it.enabled }
-                .filter { mnemonicMap[it.walletName] != null }
+                .filter { mnemonicMap[it.walletName]?.mnemonic != null }
                 .map { it.address }
-        logger.info { "Refreshed active addresses" }
+        activeAddresses.value = newActiveAddresses
+        logger.info { "Refreshed ${newActiveAddresses.size} active addresses" }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun startReceiver() {
         scope.launch {
-            activeAddresses
-                .flatMapLatest { addresses ->
-                    if (addresses.isEmpty()) {
-                        emptyFlow()
-                    } else {
-                        nodeClient
-                            .receivableStream(addresses)
-                            .onStart { logger.info { "Started listening for ${addresses.size} addresses receivables" } }
-                            .onStart { logger.info { "Stopped listening for ${addresses.size} addresses receivables" } }
-                            .retryWhen { e, _ ->
-                                logger.warn(e) { "Receiver failed. Retrying in 10s..." }
-                                delay(10.seconds)
-                                true
+            while (isActive) {
+                try {
+                    activeAddresses
+                        .onStart { refreshActiveAddresses() }
+                        .flatMapLatest { addresses ->
+                            if (addresses.isEmpty()) {
+                                return@flatMapLatest emptyFlow()
                             }
-                    }
-                }.collect { receivable ->
-                    walletAccountMap[receivable.receiverAddress]
-                        ?.receive(receivable)
+                            return@flatMapLatest nodeClient.receivableStream(addresses)
+                        }.onStart { logger.info { "Started listening receivables" } }
+                        .onCompletion { logger.info { "Stopped listening receivables" } }
+                        .collect { receivable ->
+                            logger.info("Receiving $receivable")
+                            walletAccountMap[receivable.receiverAddress]?.receive(receivable)
+                        }
+                } catch (e: Exception) {
+                    logger.error(e) { "Error while listening receivables. Retrying in 10 seconds..." }
+                    delay(10.seconds)
                 }
+            }
         }
     }
 
@@ -164,7 +176,7 @@ class AccountService(
 
     @EventListener
     suspend fun onWallet(walletEvent: WalletEvent) {
-        mnemonicMap[walletEvent.name] = walletEvent.mnemonic
+        mnemonicMap[walletEvent.name] = MnemonicHolder(walletEvent.mnemonic)
         refreshActiveAddresses()
     }
 
@@ -262,6 +274,18 @@ class AccountService(
         return walletAccount.change(representativeAddress)
     }
 
+    private suspend fun getWork(block: AttoBlock): AttoWork {
+        while (coroutineContext.isActive) {
+            try {
+                return worker.work(block)
+            } catch (e: Exception) {
+                logger.error(e) { "Error while working for $block" }
+                delay(10.seconds)
+            }
+        }
+        throw CancellationException("Work for $block was cancelled")
+    }
+
     private suspend fun Account.toWalletAccount(): WalletAccount {
         val address = AttoAddress.parsePath(address)
 
@@ -277,7 +301,7 @@ class AccountService(
                 AttoTransaction(
                     block = block,
                     signature = signer.sign(block),
-                    work = worker.work(block),
+                    work = getWork(block),
                 )
 
             nodeClient.publish(transaction)
@@ -287,4 +311,8 @@ class AccountService(
     }
 
     private suspend fun AttoMnemonic.toSigner(index: Long): AttoSigner = toSeed().toPrivateKey(index.toUInt()).toSigner()
+
+    private data class MnemonicHolder(
+        val mnemonic: AttoMnemonic?,
+    )
 }

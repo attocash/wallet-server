@@ -76,9 +76,7 @@ class AccountController(
     )
     fun findAll(
         @PathVariable walletName: String,
-    ): Flow<Account> {
-        return accountRepository.findAllByWalletName(walletName)
-    }
+    ): Flow<Account> = accountRepository.findAllByWalletName(walletName)
 
     @GetMapping("/wallets/accounts/{address}")
     @Operation(
@@ -185,7 +183,8 @@ class AccountController(
         @RequestBody(required = false) request: HeightSearch?,
     ): Flow<AccountEntry> {
         val request = request?.toNodeSearch() ?: createNodeSearch()
-        return nodeOperations.accountEntryStream(request)
+        return nodeOperations
+            .accountEntryStream(request)
             .timeout(60.seconds)
             .map { it.toAccountEntry() }
     }
@@ -273,8 +272,8 @@ class AccountController(
         val representativeAddress: AttoAddress,
     )
 
-    private fun AttoAccount.toAccountDetails(): AccountDetails {
-        return AccountDetails(
+    private fun AttoAccount.toAccountDetails(): AccountDetails =
+        AccountDetails(
             address = this.address,
             version = this.version,
             algorithm = this.algorithm,
@@ -284,7 +283,6 @@ class AccountController(
             lastTransactionTimestamp = this.lastTransactionTimestamp,
             representativeAddress = this.representativeAddress,
         )
-    }
 
     @Serializable
     data class AccountEntry(
@@ -301,8 +299,8 @@ class AccountController(
         val timestamp: Instant,
     )
 
-    private fun AttoAccountEntry.toAccountEntry(): AccountEntry {
-        return AccountEntry(
+    private fun AttoAccountEntry.toAccountEntry(): AccountEntry =
+        AccountEntry(
             hash = this.hash,
             address = this.address,
             height = this.height,
@@ -310,7 +308,6 @@ class AccountController(
             subjectAddress = this.subjectAddress,
             previousBalance = this.previousBalance,
             balance = this.balance,
-            timestamp = this.timestamp
+            timestamp = this.timestamp,
         )
-    }
 }
