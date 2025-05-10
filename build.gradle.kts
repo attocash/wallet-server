@@ -69,8 +69,6 @@ dependencies {
     implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
-    implementation("com.auth0:java-jwt:4.4.0")
-
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
