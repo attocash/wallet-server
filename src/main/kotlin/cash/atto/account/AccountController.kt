@@ -316,6 +316,7 @@ class AccountController(
         @field:Schema(
             description = "The address of the account being searched",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+            type = "String",
         )
         @Serializable(with = AttoAddressAsStringSerializer::class)
         val address: AttoAddress,
