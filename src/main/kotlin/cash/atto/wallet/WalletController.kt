@@ -215,6 +215,12 @@ class WalletController(
     @Schema(name = "WalletImportRequest", description = "Represents a request to import an wallet")
     @Serializable
     data class WalletImportRequest(
+        @Schema(
+            description = "24 words mnemonic",
+            example =
+                "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
+                    "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
+        )
         val mnemonic: String,
         @Schema(
             description =
