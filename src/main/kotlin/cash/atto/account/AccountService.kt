@@ -140,13 +140,13 @@ class AccountService(
         }
     }
 
-    private fun refreshActiveAddresses() {
+    private suspend fun refreshActiveAddresses() {
         val newActiveAddresses =
             walletAccountMap.values
                 .filter { it.enabled }
                 .filter { mnemonicMap[it.walletName]?.mnemonic != null }
                 .map { it.address }
-        activeAddresses.value = newActiveAddresses
+        activeAddresses.emit(newActiveAddresses)
         logger.info { "Refreshed ${newActiveAddresses.size} active addresses" }
     }
 
@@ -272,19 +272,25 @@ class AccountService(
         val walletAccount = getWalletAccount(address)
         walletAccount.requiredAccountNotNull()
         val balance = walletAccount.account!!.balance
-        val transaction = walletAccount.send(receiverAddress, amount, lastHeight)
-        return AttoAccountEntry(
-            hash = transaction.hash,
-            algorithm = transaction.block.algorithm,
-            publicKey = transaction.block.publicKey,
-            height = transaction.height,
-            blockType = transaction.block.toBlockType(),
-            subjectAlgorithm = receiverAddress.algorithm,
-            subjectPublicKey = receiverAddress.publicKey,
-            previousBalance = balance,
-            balance = transaction.block.balance,
-            timestamp = transaction.block.timestamp,
-        )
+
+        try {
+            val transaction = walletAccount.send(receiverAddress, amount, lastHeight)
+            return AttoAccountEntry(
+                hash = transaction.hash,
+                algorithm = transaction.block.algorithm,
+                publicKey = transaction.block.publicKey,
+                height = transaction.height,
+                blockType = transaction.block.toBlockType(),
+                subjectAlgorithm = receiverAddress.algorithm,
+                subjectPublicKey = receiverAddress.publicKey,
+                previousBalance = balance,
+                balance = transaction.block.balance,
+                timestamp = transaction.block.timestamp,
+            )
+        } catch (e: Exception) {
+            refreshActiveAddresses()
+            throw e
+        }
     }
 
     suspend fun change(
@@ -296,19 +302,24 @@ class AccountService(
 
         walletAccount.requiredAccountNotNull()
 
-        val transaction = walletAccount.change(representativeAddress)
-        return AttoAccountEntry(
-            hash = transaction.hash,
-            algorithm = transaction.block.algorithm,
-            publicKey = transaction.block.publicKey,
-            height = transaction.height,
-            blockType = transaction.block.toBlockType(),
-            subjectAlgorithm = representativeAddress.algorithm,
-            subjectPublicKey = representativeAddress.publicKey,
-            previousBalance = transaction.block.balance,
-            balance = transaction.block.balance,
-            timestamp = transaction.block.timestamp,
-        )
+        try {
+            val transaction = walletAccount.change(representativeAddress)
+            return AttoAccountEntry(
+                hash = transaction.hash,
+                algorithm = transaction.block.algorithm,
+                publicKey = transaction.block.publicKey,
+                height = transaction.height,
+                blockType = transaction.block.toBlockType(),
+                subjectAlgorithm = representativeAddress.algorithm,
+                subjectPublicKey = representativeAddress.publicKey,
+                previousBalance = transaction.block.balance,
+                balance = transaction.block.balance,
+                timestamp = transaction.block.timestamp,
+            )
+        } catch (e: Exception) {
+            refreshActiveAddresses()
+            throw e
+        }
     }
 
     private suspend fun getWork(block: AttoBlock): AttoWork {
