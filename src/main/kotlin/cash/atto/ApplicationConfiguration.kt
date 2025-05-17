@@ -36,10 +36,13 @@ class ApplicationConfiguration {
 }
 
 class SpringDocWorkaround : RuntimeHintsRegistrar {
-    override fun registerHints(hints: RuntimeHints, classLoader: ClassLoader?) {
+    override fun registerHints(
+        hints: RuntimeHints,
+        classLoader: ClassLoader?,
+    ) {
         hints.reflection().registerType(
             TypeReference.of("org.springframework.core.convert.support.GenericConversionService\$Converters"),
-            *MemberCategory.entries.toTypedArray()
+            *MemberCategory.entries.toTypedArray(),
         )
     }
 }

@@ -2,10 +2,14 @@ package cash.atto.account
 
 import cash.atto.CacheSupport
 import cash.atto.account.AccountController.AccountCreationResponse
+import cash.atto.account.AccountController.AccountEntry
+import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoUnit
@@ -22,6 +26,7 @@ import kotlinx.datetime.Instant
 import org.springframework.boot.test.web.client.TestRestTemplate
 import kotlin.random.Random
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
@@ -30,6 +35,7 @@ class AccountStepDefinition(
     private val mockNode: AttoMockNode,
 ) : CacheSupport {
     var address: String? = null
+    var entry: AttoAccountEntry? = null
 
     @When("a new address is created in {word} wallet")
     fun create(walletName: String) {
@@ -139,9 +145,49 @@ class AccountStepDefinition(
             }
         }
 
+    @When("entry is added")
+    fun addEntry() {
+        val address = AttoAddress.parsePath(address!!)
+        entry =
+            AttoAccountEntry(
+                hash = AttoHash(Random.Default.nextBytes(32)),
+                algorithm = address.algorithm,
+                publicKey = address.publicKey,
+                height = AttoHeight(1U),
+                blockType = AttoBlockType.RECEIVE,
+                subjectAlgorithm = AttoAlgorithm.V1,
+                subjectPublicKey = AttoPublicKey(Random.Default.nextBytes(32)),
+                previousBalance = AttoAmount(0U),
+                balance = AttoAmount(100U),
+                timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+            )
+        runBlocking { mockNode.accountEntryFlow.emit(entry!!) }
+    }
+
+    @Then("entries are streamable")
+    fun stream() {
+        val accountHeight =
+            AccountController.AccountHeightSearch(
+                address = AttoAddress.parsePath(address!!),
+                fromHeight = 1UL,
+            )
+        val entries1 =
+            testRestTemplate.postForObject(
+                "/wallets/accounts/entries",
+                AccountController.HeightSearch(listOf(accountHeight)),
+                Array<AccountEntry>::class.java,
+            )
+
+        val entries2 = testRestTemplate.postForObject("/wallets/accounts/entries", null, Array<AccountEntry>::class.java)
+
+        assertFalse(entries1.isEmpty())
+        assertEquals(entries1.size, entries2.size)
+    }
+
     private fun String.toRepresentativePublicKey(): AttoPublicKey = AttoPublicKey(AttoHash.hash(32, this.toByteArray()).value)
 
     override fun clear() {
         address = null
+        entry = null
     }
 }

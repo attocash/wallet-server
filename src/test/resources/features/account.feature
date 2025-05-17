@@ -72,3 +72,14 @@ Feature: Wallet
 
     When account representative changes to awesome
     Then account representative is awesome
+
+  Scenario: Account entries should be streamable
+    Given the treasury wallet has been imported
+    And a new address is created in treasury wallet
+
+    When account receives 50 attos
+    Then account balance is 50 attos
+
+    When entry is added
+
+    Then entries are streamable

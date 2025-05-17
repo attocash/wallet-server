@@ -252,7 +252,7 @@ class AccountController(
 
                 val toHeight = accountService.getAccountDetails(it.address)?.height?.value ?: 1UL
 
-                if (toHeight <= it.fromHeight) {
+                if (toHeight < it.fromHeight) {
                     return@mapNotNull null
                 }
 
