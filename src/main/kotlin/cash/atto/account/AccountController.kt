@@ -250,7 +250,7 @@ class AccountController(
                     throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight must be greater than 0")
                 }
 
-                val toHeight = accountService.getAccountDetails(it.address)?.height?.value ?: 1UL
+                val toHeight = accountService.getAccountDetails(it.address)?.height?.value ?: return@mapNotNull null
 
                 if (toHeight < it.fromHeight) {
                     return@mapNotNull null
@@ -270,9 +270,9 @@ class AccountController(
             accountService.getAccountMap().mapNotNull {
                 val address = it.key
                 val fromHeight = 1UL
-                val toHeight = it.value?.height?.value ?: 1UL
+                val toHeight = it.value?.height?.value ?: return@mapNotNull null
 
-                if (fromHeight > toHeight) {
+                if (toHeight < fromHeight) {
                     return@mapNotNull null
                 }
 
