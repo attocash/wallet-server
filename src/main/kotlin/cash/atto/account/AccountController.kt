@@ -19,10 +19,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.timeout
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Duration.Companion.seconds
 
 @RestController
@@ -229,6 +232,11 @@ class AccountController(
         @RequestBody(required = false) request: HeightSearch?,
     ): Flow<AccountEntry> {
         val request = request?.toNodeSearch() ?: createNodeSearch()
+
+        if (request.search.isEmpty()) {
+            return emptyFlow()
+        }
+
         return nodeOperations
             .accountEntryStream(request)
             .timeout(60.seconds)
@@ -238,6 +246,10 @@ class AccountController(
     private fun HeightSearch.toNodeSearch(): AttoNodeOperations.HeightSearch {
         val nodeSearch =
             search.mapNotNull {
+                if (it.fromHeight == 0UL) {
+                    throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight must be greater than 0")
+                }
+
                 val toHeight = accountService.getAccountDetails(it.address)?.height?.value ?: 1UL
 
                 if (toHeight <= it.fromHeight) {
