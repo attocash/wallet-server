@@ -1,5 +1,5 @@
 spring:
-  application.name: wallet-server
+  application.name: atto-wallet-server
   main.banner-mode: off
   threads:
     virtual:
