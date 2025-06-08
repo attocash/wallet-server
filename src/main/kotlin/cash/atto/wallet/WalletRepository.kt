@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
 import java.time.Instant
 
-@Order(1)
+@Order(2)
 interface WalletRepository : CoroutineCrudRepository<Wallet, String>
 
 suspend fun WalletRepository.getById(name: String): Wallet =

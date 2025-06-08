@@ -2,7 +2,6 @@ package cash.atto.account
 
 import cash.atto.CacheSupport
 import cash.atto.account.AccountController.AccountCreationResponse
-import cash.atto.account.AccountController.AccountEntry
 import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
@@ -75,7 +74,7 @@ class AccountStepDefinition(
     fun send(amount: String) {
         val receiverAddress = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32)))
         val request = AccountController.SendRequest(receiverAddress, AttoAmount.from(AttoUnit.ATTO, amount))
-        testRestTemplate.postForObject("/wallets/accounts/$address/transactions/SEND", request, AccountController.AccountEntry::class.java)
+        testRestTemplate.postForObject("/wallets/accounts/$address/transactions/SEND", request, AccountEntry::class.java)
     }
 
     @When("account representative changes to {word}")
@@ -87,7 +86,7 @@ class AccountStepDefinition(
         testRestTemplate.postForObject(
             "/wallets/accounts/$address/transactions/CHANGE",
             request,
-            AccountController.AccountEntry::class.java,
+            AccountEntry::class.java,
         )
     }
 

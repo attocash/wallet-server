@@ -16,6 +16,11 @@ atto:
     base-url:
   wallet:
     cha-cha20-encryption-key: '0000000000000000000000000000000000000000000000000000000000000000'
+  notification:
+    callback-url: http://localhost:8080/callback
+    header:
+      key: Authorization
+      value: Secret
 
 logging:
   level:

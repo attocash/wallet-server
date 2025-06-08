@@ -10,7 +10,7 @@ import org.springframework.data.domain.Persistable
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.time.Instant
 
-@Order(0)
+@Order(1)
 interface AccountRepository : CoroutineCrudRepository<Account, String> {
     fun findAllByWalletName(walletName: String): Flow<Account>
 }

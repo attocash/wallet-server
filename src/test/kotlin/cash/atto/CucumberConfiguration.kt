@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.testcontainers.junit.jupiter.Testcontainers
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @Testcontainers
 @CucumberContextConfiguration
 class CucumberConfiguration(

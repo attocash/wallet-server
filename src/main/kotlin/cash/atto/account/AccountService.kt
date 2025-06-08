@@ -99,9 +99,9 @@ class AccountService(
             "Address  $address wasn't found",
         )
 
-    fun getAccountMap(): Map<AttoAddress, AttoAccount?> =
+    fun getAccountMap(includeDisabled: Boolean = false): Map<AttoAddress, AttoAccount?> =
         walletAccountMap
-            .filter { it.value.enabled }
+            .filter { it.value.enabled || includeDisabled }
             .map { it.key to it.value.account }
             .toMap()
 
@@ -165,8 +165,9 @@ class AccountService(
                         }.onStart { logger.info { "Started listening receivables" } }
                         .onCompletion { logger.info { "Stopped listening receivables" } }
                         .collect { receivable ->
-                            logger.info("Receiving $receivable")
+                            logger.debug { "Receiving $receivable" }
                             walletAccountMap[receivable.receiverAddress]?.receive(receivable)
+                            logger.info { "Received $receivable" }
                         }
                 } catch (e: Exception) {
                     logger.error(e) { "Error while listening receivables. Retrying in 10 seconds..." }

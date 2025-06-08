@@ -21,6 +21,11 @@ atto:
     base-url: ${WORK_BASE_URL}
   wallet:
     cha-cha20-encryption-key: ${CHA_CHA20_KEY_ENCRYPTION_KEY}
+  notification:
+    callback-url: ${CALLBACK_URL:}
+    header:
+      key: ${CALLBACK_HEADER_KEY:}
+      value: ${CALLBACK_HEADER_VALUE:}
 
 springdoc:
   swagger-ui:
