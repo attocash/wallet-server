@@ -92,7 +92,7 @@ class AccountController(
 
     @GetMapping("/wallets/accounts/{address}")
     @Operation(
-        summary = "Disable an account",
+        summary = "Get account",
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -108,7 +108,7 @@ class AccountController(
 
     @GetMapping("/wallets/accounts/{address}/details")
     @Operation(
-        summary = "Disable an account",
+        summary = "Get account details",
         responses = [
             ApiResponse(
                 responseCode = "200",
