@@ -241,7 +241,7 @@ class AccountController(
             .map { it.toAccountEntry() }
     }
 
-    private fun HeightSearch.toNodeSearch(): AttoNodeOperations.HeightSearch {
+    private fun HeightSearch.toNodeSearch(): cash.atto.commons.node.HeightSearch {
         val nodeSearch =
             search.mapNotNull {
                 if (it.fromHeight == 0UL) {
@@ -254,16 +254,17 @@ class AccountController(
                     return@mapNotNull null
                 }
 
-                return@mapNotNull AttoNodeOperations.AccountHeightSearch(
-                    it.address.path,
-                    it.fromHeight,
-                    toHeight,
+                return@mapNotNull cash.atto.commons.node.AccountHeightSearch(
+                    it.address,
+                    it.fromHeight.toAttoHeight(),
+                    toHeight.toAttoHeight(),
                 )
             }
-        return AttoNodeOperations.HeightSearch(nodeSearch)
+        return cash.atto.commons.node
+            .HeightSearch(nodeSearch)
     }
 
-    private fun createNodeSearch(): AttoNodeOperations.HeightSearch {
+    private fun createNodeSearch(): cash.atto.commons.node.HeightSearch {
         val nodeSearch =
             accountService.getAccountMap().mapNotNull {
                 val address = it.key
@@ -274,13 +275,14 @@ class AccountController(
                     return@mapNotNull null
                 }
 
-                return@mapNotNull AttoNodeOperations.AccountHeightSearch(
-                    address.path,
-                    fromHeight,
-                    toHeight,
+                return@mapNotNull cash.atto.commons.node.AccountHeightSearch(
+                    address,
+                    fromHeight.toAttoHeight(),
+                    toHeight.toAttoHeight(),
                 )
             }
-        return AttoNodeOperations.HeightSearch(nodeSearch)
+        return cash.atto.commons.node
+            .HeightSearch(nodeSearch)
     }
 
     @Serializable

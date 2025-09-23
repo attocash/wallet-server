@@ -16,21 +16,21 @@ interface AccountRepository : CoroutineCrudRepository<Account, String> {
 }
 
 class Account(
-    @Schema(description = "The address of the account", example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2")
+    @field:Schema(description = "The address of the account", example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2")
     @Id
     val address: String,
-    @Schema(
+    @field:Schema(
         description = "The database version of the row used for optimistic locking",
         example = "1",
     )
     @Version
     val version: Long? = null,
-    @Schema(
+    @field:Schema(
         description = "The index of the account in the mnemonic",
         example = "1",
     )
     val accountIndex: Long,
-    @Schema(
+    @field:Schema(
         description = "Wallet name",
         example = "treasury",
     )
@@ -39,7 +39,7 @@ class Account(
     val persistedAt: Instant? = null,
     @JsonIgnore
     val updatedAt: Instant? = null,
-    @Schema(
+    @field:Schema(
         description = "Timestamp when the account was disabled",
         example = "treasury",
     )

@@ -215,14 +215,14 @@ class WalletController(
     @Schema(name = "WalletImportRequest", description = "Represents a request to import an wallet")
     @Serializable
     data class WalletImportRequest(
-        @Schema(
+        @field:Schema(
             description = "24 words mnemonic",
             example =
                 "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
                     "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
         )
         val mnemonic: String,
-        @Schema(
+        @field:Schema(
             description =
                 "Optional 32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest. " +
                     "If not provided the wallet will generate one.",
@@ -234,14 +234,14 @@ class WalletController(
     @Schema(name = "WalletCreationResponse", description = "Represents a request to create an wallet")
     @Serializable
     data class WalletCreationResponse(
-        @Schema(
+        @field:Schema(
             description = "24 words mnemonic",
             example =
                 "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
                     "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
         )
         val mnemonic: String,
-        @Schema(
+        @field:Schema(
             description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
@@ -251,7 +251,7 @@ class WalletController(
     @Schema(name = "WalletUnlockRequest", description = "Represents a request to unlock the wallet")
     @Serializable
     data class WalletUnlockRequest(
-        @Schema(
+        @field:Schema(
             description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
