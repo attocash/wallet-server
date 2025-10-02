@@ -33,7 +33,7 @@ ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
     val commonsVersion = "5.4.0"
-    val cucumberVersion = "7.23.0"
+    val cucumberVersion = "7.30.0"
     val springdocVersion = "2.8.13"
 
     implementation("cash.atto:commons-node-remote:$commonsVersion")
