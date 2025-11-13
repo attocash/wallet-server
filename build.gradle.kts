@@ -20,11 +20,17 @@ java {
     }
 }
 
+kotlin {
+    compilerOptions {
+        freeCompilerArgs.addAll("-Xjsr305=strict")
+    }
+}
+
 repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
     }
 }
 
@@ -32,7 +38,7 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "5.4.0"
+    val commonsVersion = "d1eab26-SNAPSHOT"
     val cucumberVersion = "7.23.0"
     val springdocVersion = "2.8.14"
 
@@ -89,12 +95,6 @@ dependencies {
     testImplementation("org.testcontainers:r2dbc")
     testImplementation("org.testcontainers:testcontainers")
     implementation(kotlin("test"))
-}
-
-kotlin {
-    compilerOptions {
-        freeCompilerArgs.addAll("-Xjsr305=strict")
-    }
 }
 
 tasks.withType<Test> {
