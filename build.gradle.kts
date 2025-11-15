@@ -38,7 +38,7 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "fc6a743-SNAPSHOT"
+    val commonsVersion = "1418a3e-SNAPSHOT"
     val cucumberVersion = "7.23.0"
     val springdocVersion = "2.8.14"
 
