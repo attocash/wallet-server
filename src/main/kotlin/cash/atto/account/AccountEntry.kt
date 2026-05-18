@@ -2,14 +2,14 @@ package cash.atto.account
 
 import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAddress
+import cash.atto.commons.AttoAddressAsPathStringSerializer
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
-import cash.atto.commons.serialiazer.AttoAddressAsStringSerializer
-import cash.atto.commons.serialiazer.InstantMillisSerializer
+import cash.atto.commons.AttoInstant
+import cash.atto.commons.AttoInstantAsLongSerializer
 import io.swagger.v3.oas.annotations.media.Schema
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 @Schema(name = "AccountEntry", description = "An user-friendly view of account activity")
@@ -26,7 +26,7 @@ data class AccountEntry(
         example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
         type = "String",
     )
-    @Serializable(with = AttoAddressAsStringSerializer::class)
+    @Serializable(with = AttoAddressAsPathStringSerializer::class)
     val address: AttoAddress,
     @field:Schema(description = "Block height", example = "0", type = "Long")
     val height: AttoHeight,
@@ -36,7 +36,7 @@ data class AccountEntry(
         description = "Address of the subject involved in the transaction",
         example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
     )
-    @Serializable(with = AttoAddressAsStringSerializer::class)
+    @Serializable(with = AttoAddressAsPathStringSerializer::class)
     val subjectAddress: AttoAddress,
     @field:Schema(
         description = "Public key of the subject involved in the transaction",
@@ -46,8 +46,8 @@ data class AccountEntry(
     @field:Schema(description = "Balance before this block", example = "0")
     val balance: AttoAmount,
     @field:Schema(description = "Balance after this block", example = "100")
-    @Serializable(with = InstantMillisSerializer::class)
-    val timestamp: Instant,
+    @Serializable(with = AttoInstantAsLongSerializer::class)
+    val timestamp: AttoInstant,
 )
 
 fun AttoAccountEntry.toAccountEntry(): AccountEntry =

@@ -32,7 +32,7 @@ class Notifier(
     @PostConstruct
     fun init() {
         runBlocking {
-            stateMap.putAll(notificationStateRepository.findAll().toList().associateBy { AttoAddress.parsePath(it.address) })
+            stateMap.putAll(notificationStateRepository.findAll().toList().associateBy { AttoAddress.parse(it.address) })
 
             accountService.getAccountMap(true).forEach { (address, _) ->
                 if (stateMap.containsKey(address)) {
@@ -85,7 +85,7 @@ class Notifier(
         val entry =
             withTimeoutOrNull(60.seconds) {
                 nodeOperations
-                    .accountEntryStream(AttoAddress.parsePath(state.address).publicKey, newHeight, newHeight)
+                    .accountEntryStream(AttoAddress.parse(state.address).publicKey, newHeight, newHeight)
                     .first()
             }
 

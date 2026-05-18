@@ -1,8 +1,7 @@
 package cash.atto.node
 
-import cash.atto.ApplicationProperties
-import cash.atto.commons.node.AttoNodeOperations
-import cash.atto.commons.node.custom
+import cash.atto.commons.node.AttoNodeClient
+import cash.atto.commons.node.remote
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -14,11 +13,8 @@ import org.springframework.web.reactive.config.WebFluxConfigurer
 class NodeConfiguration : WebFluxConfigurer {
     @Bean
     @ConditionalOnMissingBean
-    fun nodeClient(
-        applicationProperties: ApplicationProperties,
-        properties: NodeProperties,
-    ): AttoNodeOperations =
-        AttoNodeOperations.custom(applicationProperties.network, properties.baseUrl) {
+    fun nodeClient(properties: NodeProperties): AttoNodeClient =
+        AttoNodeClient.remote(properties.baseUrl) {
             emptyMap()
         }
 }
