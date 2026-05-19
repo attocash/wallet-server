@@ -2,13 +2,16 @@ package cash.atto.account
 
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAddress
+import cash.atto.commons.AttoAddressAsPathStringSerializer
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
+import cash.atto.commons.AttoInstant
+import cash.atto.commons.AttoInstantAsLongSerializer
 import cash.atto.commons.AttoVersion
+import cash.atto.commons.node.AccountHeightSearch
 import cash.atto.commons.node.AttoNodeOperations
-import cash.atto.commons.serialiazer.AttoAddressAsStringSerializer
-import cash.atto.commons.serialiazer.InstantMillisSerializer
+import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.toAttoHeight
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -20,7 +23,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.timeout
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -66,8 +68,8 @@ class AccountController(
     ): AccountCreationResponse {
         val account = accountService.create(walletName)
         return AccountCreationResponse(
-            address = AttoAddress.parsePath(account.address),
-            displayAddress = AttoAddress.parsePath(account.address).toString(),
+            address = AttoAddress.parse(account.address),
+            displayAddress = AttoAddress.parse(account.address).toString(),
             index = account.accountIndex.toUInt(),
         )
     }
@@ -121,7 +123,7 @@ class AccountController(
     suspend fun getDetails(
         @PathVariable address: String,
     ): ResponseEntity<AccountDetails> =
-        ResponseEntity.ofNullable(accountService.getAccountDetails(AttoAddress.parsePath(address))?.toAccountDetails())
+        ResponseEntity.ofNullable(accountService.getAccountDetails(AttoAddress.parse(address))?.toAccountDetails())
 
     @PostMapping("/wallets/accounts/{address}/states/DISABLED")
     @Operation(
@@ -135,7 +137,7 @@ class AccountController(
     suspend fun disable(
         @PathVariable address: String,
     ) {
-        accountService.disable(AttoAddress.parsePath(address))
+        accountService.disable(AttoAddress.parse(address))
     }
 
     @PostMapping("/wallets/accounts/{address}/states/ENABLED")
@@ -150,7 +152,7 @@ class AccountController(
     suspend fun enable(
         @PathVariable address: String,
     ) {
-        accountService.enable(AttoAddress.parsePath(address))
+        accountService.enable(AttoAddress.parse(address))
     }
 
     @PostMapping("/wallets/accounts/{address}/transactions/CHANGE")
@@ -170,7 +172,7 @@ class AccountController(
     suspend fun change(
         @PathVariable address: String,
         @RequestBody request: ChangeRequest,
-    ): AccountEntry = accountService.change(AttoAddress.parsePath(address), request.representativeAddress).toAccountEntry()
+    ): AccountEntry = accountService.change(AttoAddress.parse(address), request.representativeAddress).toAccountEntry()
 
     @PostMapping("/wallets/accounts/{address}/transactions/SEND")
     @Operation(
@@ -200,11 +202,11 @@ class AccountController(
         @RequestBody request: SendRequest,
     ): AccountEntry {
         val lastHeight =
-            request.lastHeight ?: accountService.getAccountDetails(AttoAddress.parsePath(address))?.height ?: 1UL.toAttoHeight()
+            request.lastHeight ?: accountService.getAccountDetails(AttoAddress.parse(address))?.height ?: 1UL.toAttoHeight()
 
         return accountService
             .send(
-                AttoAddress.parsePath(address),
+                AttoAddress.parse(address),
                 request.receiverAddress,
                 request.amount,
                 lastHeight,
@@ -229,7 +231,7 @@ class AccountController(
     suspend fun search(
         @RequestBody(required = false) request: HeightSearch?,
     ): Flow<AccountEntry> {
-        val request = request?.toNodeSearch() ?: createNodeSearch()
+        val request = request?.toBoundedNodeSearch() ?: createNodeSearch()
 
         if (request.search.isEmpty()) {
             return emptyFlow()
@@ -241,30 +243,29 @@ class AccountController(
             .map { it.toAccountEntry() }
     }
 
-    private fun HeightSearch.toNodeSearch(): cash.atto.commons.node.HeightSearch {
+    private fun HeightSearch.toBoundedNodeSearch(): HeightSearch {
         val nodeSearch =
             search.mapNotNull {
-                if (it.fromHeight == 0UL) {
+                if (it.fromHeight.value == 0UL) {
                     throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight must be greater than 0")
                 }
 
-                val toHeight = accountService.getAccountDetails(it.address)?.height?.value ?: return@mapNotNull null
+                val currentHeight = accountService.getAccountDetails(it.address)?.height?.value ?: return@mapNotNull null
 
-                if (toHeight < it.fromHeight) {
+                if (currentHeight < it.fromHeight.value) {
                     return@mapNotNull null
                 }
 
-                return@mapNotNull cash.atto.commons.node.AccountHeightSearch(
+                return@mapNotNull AccountHeightSearch(
                     it.address,
-                    it.fromHeight.toAttoHeight(),
-                    toHeight.toAttoHeight(),
+                    it.fromHeight,
+                    currentHeight.toAttoHeight(),
                 )
             }
-        return cash.atto.commons.node
-            .HeightSearch(nodeSearch)
+        return HeightSearch(nodeSearch)
     }
 
-    private fun createNodeSearch(): cash.atto.commons.node.HeightSearch {
+    private fun createNodeSearch(): HeightSearch {
         val nodeSearch =
             accountService.getAccountMap().mapNotNull {
                 val address = it.key
@@ -275,19 +276,18 @@ class AccountController(
                     return@mapNotNull null
                 }
 
-                return@mapNotNull cash.atto.commons.node.AccountHeightSearch(
+                return@mapNotNull AccountHeightSearch(
                     address,
                     fromHeight.toAttoHeight(),
                     toHeight.toAttoHeight(),
                 )
             }
-        return cash.atto.commons.node
-            .HeightSearch(nodeSearch)
+        return HeightSearch(nodeSearch)
     }
 
     @Serializable
     data class AccountCreationResponse(
-        @Serializable(with = AttoAddressAsStringSerializer::class)
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val address: AttoAddress,
         val displayAddress: String,
         val index: UInt,
@@ -300,7 +300,7 @@ class AccountController(
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
-        @Serializable(with = AttoAddressAsStringSerializer::class)
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val representativeAddress: AttoAddress,
     )
 
@@ -311,7 +311,7 @@ class AccountController(
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
-        @Serializable(with = AttoAddressAsStringSerializer::class)
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val receiverAddress: AttoAddress,
         @field:Schema(description = "Amount", example = "10000", type = "Long")
         val amount: AttoAmount,
@@ -324,30 +324,13 @@ class AccountController(
     )
 
     @Serializable
-    data class AccountHeightSearch(
-        @field:Schema(
-            description = "The address of the account being searched",
-            example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
-            type = "String",
-        )
-        @Serializable(with = AttoAddressAsStringSerializer::class)
-        val address: AttoAddress,
-        val fromHeight: ULong,
-    )
-
-    @Serializable
-    data class HeightSearch(
-        val search: List<AccountHeightSearch>,
-    )
-
-    @Serializable
     data class AccountDetails(
         @field:Schema(
             description = "The address of the account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
-        @Serializable(with = AttoAddressAsStringSerializer::class)
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val address: AttoAddress,
         @field:Schema(description = "Version", example = "0", type = "Short")
         val version: AttoVersion,
@@ -362,14 +345,14 @@ class AccountController(
         )
         val lastTransactionHash: AttoHash,
         @field:Schema(description = "Timestamp of the last transaction", example = "1705517157478", type = "Long")
-        @Serializable(with = InstantMillisSerializer::class)
-        val lastTransactionTimestamp: Instant,
+        @Serializable(with = AttoInstantAsLongSerializer::class)
+        val lastTransactionTimestamp: AttoInstant,
         @field:Schema(
             description = "Representative algorithm",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
-        @Serializable(with = AttoAddressAsStringSerializer::class)
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val representativeAddress: AttoAddress,
     )
 

@@ -4,9 +4,8 @@ plugins {
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
-    kotlin("plugin.jpa") version kotlinVersion
 
-    id("org.springframework.boot") version "3.5.7"
+    id("org.springframework.boot") version "4.0.3"
     id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "1.1.0"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
@@ -16,7 +15,7 @@ group = "cash.atto"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -34,24 +33,25 @@ repositories {
     }
 }
 
-ext["kotlin-coroutines.version"] = "1.9.0"
-ext["kotlin-serialization.version"] = "1.8.0"
-
 dependencies {
-    val commonsVersion = "5.4.1"
+    val commonsVersion = "6.6.0"
     val cucumberVersion = "7.23.0"
-    val springdocVersion = "2.8.14"
+    val springdocVersion = "3.0.1"
+    val testcontainersVersion = "2.0.5"
+
+    implementation("cash.atto:commons-spring-boot-starter:$commonsVersion")
 
     implementation("cash.atto:commons-node-remote:$commonsVersion")
-    testImplementation("cash.atto:commons-node-test:$commonsVersion")
+
+    implementation("cash.atto:commons-wallet:$commonsVersion")
 
     implementation("cash.atto:commons-worker-remote:$commonsVersion")
-    testImplementation("cash.atto:commons-worker-test:$commonsVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-webclient")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
@@ -60,13 +60,11 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine")
 
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
-    implementation("org.flywaydb:flyway-core")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
 
     implementation("io.asyncer:r2dbc-mysql:1.4.1")
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
-
-    implementation("com.github.ben-manes.caffeine:caffeine")
 
     implementation("io.projectreactor.kotlin:reactor-kotlin-extensions")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -80,6 +78,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
     }
+    testImplementation("cash.atto:commons-test:$commonsVersion")
     testImplementation("io.mockk:mockk:1.14.6")
     testImplementation("io.projectreactor:reactor-test")
 
@@ -89,11 +88,11 @@ dependencies {
     testImplementation("io.cucumber:cucumber-junit-platform-engine:$cucumberVersion")
     testImplementation("org.awaitility:awaitility:4.3.0")
 
-    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation(platform("org.testcontainers:testcontainers-bom:$testcontainersVersion"))
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:mysql")
-    testImplementation("org.testcontainers:r2dbc")
-    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:testcontainers-mysql")
+    testImplementation("org.testcontainers:testcontainers-r2dbc")
     implementation(kotlin("test"))
 }
 
@@ -108,9 +107,6 @@ ktlint {
 graalvmNative {
     binaries {
         named("main") {
-            buildArgs.add("--static")
-            buildArgs.add("--libc=musl")
-            buildArgs.add("--strict-image-heap")
         }
     }
 }

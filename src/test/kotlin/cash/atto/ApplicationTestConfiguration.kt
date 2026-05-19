@@ -1,8 +1,10 @@
 package cash.atto
 
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.test.web.reactive.server.WebTestClient
 import org.testcontainers.containers.MySQLContainer
 
 @Configuration
@@ -14,4 +16,11 @@ class ApplicationTestConfiguration {
         container.withUsername("root")
         return container
     }
+
+    @Bean
+    fun webTestClient(applicationContext: ApplicationContext): WebTestClient =
+        WebTestClient
+            .bindToApplicationContext(applicationContext)
+            .configureClient()
+            .build()
 }
