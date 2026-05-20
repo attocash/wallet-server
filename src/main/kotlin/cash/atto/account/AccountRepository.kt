@@ -15,8 +15,12 @@ interface AccountRepository : CoroutineCrudRepository<Account, String> {
     fun findAllByWalletName(walletName: String): Flow<Account>
 }
 
+@Schema(name = "Account", description = "Persisted local account row")
 class Account(
-    @field:Schema(description = "The address of the account", example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2")
+    @field:Schema(
+        description = "Bare account address path used by API routes",
+        example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+    )
     @Id
     val address: String,
     @field:Schema(
@@ -26,7 +30,7 @@ class Account(
     @Version
     val version: Long? = null,
     @field:Schema(
-        description = "The index of the account in the mnemonic",
+        description = "Deterministic account index in the wallet mnemonic",
         example = "1",
     )
     val accountIndex: Long,
@@ -40,8 +44,8 @@ class Account(
     @JsonIgnore
     val updatedAt: Instant? = null,
     @field:Schema(
-        description = "Timestamp when the account was disabled",
-        example = "treasury",
+        description = "Timestamp when the account was disabled, or null when enabled",
+        example = "2026-05-20T19:46:48.134Z",
     )
     var disabledAt: Instant? = null,
 ) : Persistable<String> {

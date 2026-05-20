@@ -12,7 +12,7 @@ import cash.atto.commons.AttoInstantAsLongSerializer
 import io.swagger.v3.oas.annotations.media.Schema
 import kotlinx.serialization.Serializable
 
-@Schema(name = "AccountEntry", description = "An user-friendly view of account activity")
+@Schema(name = "AccountEntry", description = "A user-friendly view of account activity")
 @Serializable
 data class AccountEntry(
     @field:Schema(
@@ -39,13 +39,13 @@ data class AccountEntry(
     @Serializable(with = AttoAddressAsPathStringSerializer::class)
     val subjectAddress: AttoAddress,
     @field:Schema(
-        description = "Public key of the subject involved in the transaction",
-        example = "2EB21717813E7A0E0A7E308B8E2FD8A051F8724F5C5F0047E92E19310C582E3A",
+        description = "Balance before this block",
+        example = "0",
     )
     val previousBalance: AttoAmount,
-    @field:Schema(description = "Balance before this block", example = "0")
-    val balance: AttoAmount,
     @field:Schema(description = "Balance after this block", example = "100")
+    val balance: AttoAmount,
+    @field:Schema(description = "Block timestamp", example = "1705517157478", type = "Long")
     @Serializable(with = AttoInstantAsLongSerializer::class)
     val timestamp: AttoInstant,
 )

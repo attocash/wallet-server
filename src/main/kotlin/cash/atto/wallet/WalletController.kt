@@ -3,6 +3,7 @@ package cash.atto.wallet
 import cash.atto.ChaCha20
 import cash.atto.commons.AttoMnemonic
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -20,16 +21,15 @@ import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
+import io.swagger.v3.oas.annotations.parameters.RequestBody as OpenApiRequestBody
 
 @RestController
 @RequestMapping("/wallets")
 @Tag(
     name = "Wallets",
     description =
-        "Manage wallets in the self-hosted Atto Wallet Server. " +
-            "This controller allows you to create new wallets, import existing ones using mnemonics, " +
-            "lock and unlock wallets by managing their in-memory decryption keys, and list or retrieve wallet information. " +
-            "Designed for applications that require secure and programmatic control over local wallets.",
+        "Create, import, lock, unlock, list, and inspect wallets in the self-hosted Atto Wallet Server. " +
+            "Wallets store encrypted mnemonic entropy at rest and load their decryption key only while unlocked.",
 )
 class WalletController(
     private val service: WalletService,
@@ -40,13 +40,14 @@ class WalletController(
     @GetMapping
     @Operation(
         summary = "List all wallets",
-        description = "Lists every wallet stored on the server together with its current lock state.",
+        description = "Lists every wallet stored on the server with its current lock state.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Stored wallets",
                 content = [
                     Content(
-                        schema = Schema(implementation = WalletState::class),
+                        array = ArraySchema(schema = Schema(implementation = WalletState::class)),
                     ),
                 ],
             ),
@@ -57,16 +58,18 @@ class WalletController(
     @GetMapping("/{name}")
     @Operation(
         summary = "Get wallet metadata",
-        description = "Retrieves metadata for the wallet identified by *name*.",
+        description = "Retrieves metadata and lock state for one wallet.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Wallet metadata",
                 content = [
                     Content(
                         schema = Schema(implementation = WalletState::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
         ],
     )
     suspend fun get(
@@ -95,11 +98,12 @@ class WalletController(
     @Operation(
         summary = "Import existing wallet",
         description =
-            "Imports a wallet from its 24‑word mnemonic. You may supply your own Cha Cha 20 encryption key; if omitted, " +
-                "the server generates one. Losing either the mnemonic or key means permanent loss of access.",
+            "Imports a wallet from its 24-word mnemonic and stores the encrypted mnemonic entropy. " +
+                "If encryptionKey is omitted, the server generates one and returns it in the response.",
         requestBody =
-            io.swagger.v3.oas.annotations.parameters.RequestBody(
+            OpenApiRequestBody(
                 required = true,
+                description = "Mnemonic to import and optional encryption key to use for this wallet.",
                 content = [
                     Content(
                         schema = Schema(implementation = WalletImportRequest::class),
@@ -109,12 +113,15 @@ class WalletController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Wallet imported",
                 content = [
                     Content(
                         schema = Schema(implementation = WalletCreationResponse::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Mnemonic or encryption key is invalid"),
+            ApiResponse(responseCode = "409", description = "Wallet name already exists"),
         ],
     )
     suspend fun import(
@@ -138,17 +145,19 @@ class WalletController(
     @Operation(
         summary = "Create a wallet",
         description =
-            "Generates a brand‑new wallet with a fresh mnemonic and encryption key, both encrypted at rest. " +
-                "Losing either will lock the wallet forever.",
+            "Generates a new wallet with a fresh mnemonic and encryption key. The response is the only time " +
+                "the generated mnemonic and key are returned together.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Wallet created",
                 content = [
                     Content(
                         schema = Schema(implementation = WalletCreationResponse::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "409", description = "Wallet name already exists"),
         ],
     )
     suspend fun createWallet(
@@ -158,11 +167,13 @@ class WalletController(
     @PutMapping("/{name}/locks/LOCKED")
     @Operation(
         summary = "Lock wallet",
-        description = "Purges the decryption key for the wallet, preventing signing operations until it is unlocked again.",
+        description = "Removes the wallet encryption key from server storage, preventing signing until the wallet is unlocked again.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Wallet locked",
             ),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
         ],
     )
     suspend fun lock(
@@ -175,12 +186,24 @@ class WalletController(
     @Operation(
         summary = "Unlock wallet",
         description =
-            "Loads the provided encryptionKey into memory and stores it securely by encrypting it " +
-                "at rest using the `CHA_CHA20_KEY_ENCRYPTION_KEY`.",
+            "Validates the provided wallet encryption key and stores it encrypted with `CHA_CHA20_KEY_ENCRYPTION_KEY`.",
+        requestBody =
+            OpenApiRequestBody(
+                required = true,
+                description = "Encryption key originally returned when the wallet was created or imported.",
+                content = [
+                    Content(
+                        schema = Schema(implementation = WalletUnlockRequest::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Wallet unlocked",
             ),
+            ApiResponse(responseCode = "400", description = "Encryption key is invalid"),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
         ],
     )
     suspend fun unlock(
@@ -198,7 +221,9 @@ class WalletController(
     @Schema(name = "WalletState", description = "View of the current wallet state")
     @Serializable
     data class WalletState(
+        @field:Schema(description = "Wallet name", example = "treasury")
         val name: String,
+        @field:Schema(description = "Whether signing material is currently available", example = "UNLOCKED")
         val lockState: LockState,
     )
 
@@ -212,11 +237,11 @@ class WalletController(
         return WalletState(name, lockState)
     }
 
-    @Schema(name = "WalletImportRequest", description = "Represents a request to import an wallet")
+    @Schema(name = "WalletImportRequest", description = "Request to import a wallet from a mnemonic")
     @Serializable
     data class WalletImportRequest(
         @field:Schema(
-            description = "24 words mnemonic",
+            description = "24-word wallet mnemonic",
             example =
                 "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
                     "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
@@ -224,25 +249,25 @@ class WalletController(
         val mnemonic: String,
         @field:Schema(
             description =
-                "Optional 32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest. " +
-                    "If not provided the wallet will generate one.",
+                "Optional 32-byte hex encoded Cha Cha 20 key used to encrypt the mnemonic at rest. " +
+                    "If omitted, the server generates one.",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
         val encryptionKey: String? = null,
     )
 
-    @Schema(name = "WalletCreationResponse", description = "Represents a request to create an wallet")
+    @Schema(name = "WalletCreationResponse", description = "Wallet mnemonic and encryption key returned after create or import")
     @Serializable
     data class WalletCreationResponse(
         @field:Schema(
-            description = "24 words mnemonic",
+            description = "24-word wallet mnemonic",
             example =
                 "florbit nuster glenth ravax drindle sporkel quenth brimzo kraddle yempth plarnix chuzzle grintop vornish daprex " +
                     "slindle frumple zorgat mekton yindle cravix blanter swooshle prindle",
         )
         val mnemonic: String,
         @field:Schema(
-            description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
+            description = "32-byte hex encoded Cha Cha 20 key used to encrypt the mnemonic at rest",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
         val encryptionKey: String,
@@ -252,7 +277,7 @@ class WalletController(
     @Serializable
     data class WalletUnlockRequest(
         @field:Schema(
-            description = "32 bytes hex encoded Cha Cha 20 encryption key used to encrypt mnemonic at rest",
+            description = "32-byte hex encoded Cha Cha 20 key used to decrypt the wallet mnemonic",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
         val encryptionKey: String,
