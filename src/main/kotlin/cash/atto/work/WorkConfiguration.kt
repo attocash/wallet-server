@@ -16,7 +16,9 @@ import kotlin.time.Duration.Companion.seconds
 class WorkConfiguration : WebFluxConfigurer {
     @Bean
     @ConditionalOnMissingBean
-    fun worker(properties: WorkProperties): AttoWorker = AttoWorker.remote(properties.baseUrl, timeout = properties.timeoutDuration())
-        .retry(10.seconds)
-        .cached()
+    fun worker(properties: WorkProperties): AttoWorker =
+        AttoWorker
+            .remote(properties.baseUrl, timeout = properties.timeoutDuration())
+            .retry(10.seconds)
+            .cached()
 }

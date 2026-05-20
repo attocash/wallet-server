@@ -11,7 +11,5 @@ class WorkProperties {
     lateinit var baseUrl: String
     var timeoutInSeconds: Long = 5 * 60
 
-    fun timeoutDuration(): Duration {
-        return timeoutInSeconds.seconds
-    }
+    fun timeoutDuration(): Duration = timeoutInSeconds.seconds
 }
