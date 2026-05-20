@@ -79,7 +79,7 @@ dependencies {
         exclude(group = "org.mockito")
     }
     testImplementation("cash.atto:commons-test:$commonsVersion")
-    testImplementation("io.mockk:mockk:1.14.6")
+    testImplementation("io.mockk:mockk:1.14.9")
     testImplementation("io.projectreactor:reactor-test")
 
     testImplementation("org.junit.platform:junit-platform-suite") // for cucumber
