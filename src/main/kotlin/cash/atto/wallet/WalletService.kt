@@ -103,4 +103,6 @@ class WalletService(
         val wallets = repository.findAll().toList()
         return wallets.associate { it.name to it.toMnemonic() }
     }
+
+    suspend fun getMnemonic(name: String): AttoMnemonic? = repository.getById(name).toMnemonic()
 }

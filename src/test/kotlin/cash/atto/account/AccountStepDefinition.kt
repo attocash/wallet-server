@@ -42,12 +42,53 @@ class AccountStepDefinition(
 ) : CacheSupport {
     var address: String? = null
     private var lastResponse: Response? = null
+    private var lastRecovery: AccountController.AccountRecoveryResponse? = null
     private var lastStatuses: List<Int> = emptyList()
 
     @When("a new address is created in {word} wallet")
     fun create(walletName: String) {
         val response = webTestClient.postForObject<AccountCreationResponse>("/wallets/$walletName/accounts", null)
         address = response.address.path
+    }
+
+    @When("the {word} wallet creates accounts through account index {int}")
+    fun createMultiple(
+        walletName: String,
+        toIndex: Int,
+    ) {
+        val response =
+            webTestClient.postForJsonArray(
+                "/wallets/$walletName/accounts/ranges/$toIndex",
+                null,
+            )
+
+        assertEquals(toIndex + 1, response.size)
+    }
+
+    @When("the {word} wallet is recovered with gap limit {int}")
+    fun recoverUntilGap(
+        walletName: String,
+        gapLimit: Int,
+    ) {
+        val response =
+            webTestClient.postForObject<AccountController.AccountRecoveryResponse>(
+                "/wallets/$walletName/recoveries",
+                AccountController.AccountRecoveryRequest(gapLimit = gapLimit.toLong()),
+            )
+
+        assertEquals(gapLimit.toUInt(), response.gapCount)
+        lastRecovery = response
+    }
+
+    @When("recovered account index {int} receives {word} attos in {word} wallet")
+    fun recoveredAccountReceives(
+        accountIndex: Int,
+        amount: String,
+        walletName: String,
+    ) {
+        val account = getAccounts(walletName).single { it.accountIndex == accountIndex.toLong() }
+        address = account.address
+        receive(amount)
     }
 
     @When("address is disabled")
@@ -109,6 +150,18 @@ class AccountStepDefinition(
 
     private fun getAccount(): Account = webTestClient.getForObject("/wallets/accounts/$address")
 
+    private fun getAccounts(walletName: String): List<Account> =
+        webTestClient
+            .get()
+            .uri("/wallets/$walletName/accounts")
+            .exchange()
+            .expectStatus()
+            .is2xxSuccessful
+            .returnResult(Account::class.java)
+            .responseBody
+            .collectList()
+            .block() ?: emptyList()
+
     private fun getAccountDetails(): AccountController.AccountDetails? {
         val result =
             webTestClient
@@ -141,6 +194,35 @@ class AccountStepDefinition(
     fun checkEnabled() {
         val response = getAccount()
         assertNull(response.disabledAt)
+    }
+
+    @Then("{int} accounts should exist in {word} wallet")
+    fun checkAccountCount(
+        expectedCount: Int,
+        walletName: String,
+    ) {
+        assertEquals(expectedCount, getAccounts(walletName).size)
+    }
+
+    @Then("recovery should start at account index {int}")
+    fun checkRecoveryStartIndex(fromIndex: Int) {
+        val recovery = lastRecovery ?: error("No recovery captured")
+
+        assertEquals(fromIndex.toUInt(), recovery.fromIndex)
+    }
+
+    @Then("recovery should stop at account index {int}")
+    fun checkRecoveryStopIndex(toIndex: Int) {
+        val recovery = lastRecovery ?: error("No recovery captured")
+
+        assertEquals(toIndex.toUInt(), recovery.toIndex)
+    }
+
+    @Then("recovery should scan {int} account indexes")
+    fun checkRecoveryScannedCount(scannedCount: Int) {
+        val recovery = lastRecovery ?: error("No recovery captured")
+
+        assertEquals(scannedCount.toUInt(), recovery.scannedCount)
     }
 
     @Then("account balance is {word} attos")
@@ -259,6 +341,7 @@ class AccountStepDefinition(
     override fun clear() {
         address = null
         lastResponse = null
+        lastRecovery = null
         lastStatuses = emptyList()
     }
 

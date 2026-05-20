@@ -15,6 +15,7 @@ import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSeed
 import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.compareTo
 import cash.atto.commons.node.AttoNodeClient
 import cash.atto.commons.node.monitor.createAccountMonitor
 import cash.atto.commons.toAttoAmount
@@ -22,6 +23,7 @@ import cash.atto.commons.toAttoIndex
 import cash.atto.commons.toSeed
 import cash.atto.commons.toSigner
 import cash.atto.commons.wallet.AttoWallet
+import cash.atto.commons.wallet.AttoWalletAccount
 import cash.atto.commons.wallet.create
 import cash.atto.commons.worker.AttoWorker
 import cash.atto.commons.worker.retry
@@ -233,7 +235,7 @@ class AccountService(
         mutex.withLock {
             val walletRuntime = getUnlockedWalletRuntime(walletName)
             val seed = walletRuntime.requiredSeed()
-            val index = walletRuntime.accounts.size.toAttoIndex()
+            val index = walletRuntime.nextIndex()
             val address = seed.toSigner(index).address
             val account =
                 Account(
@@ -256,6 +258,62 @@ class AccountService(
             return savedAccount
         }
     }
+
+    @Transactional
+    suspend fun createMultiple(
+        walletName: String,
+        toIndex: AttoKeyIndex,
+    ): List<Account> =
+        mutex.withLock {
+            val walletRuntime = getUnlockedWalletRuntime(walletName)
+            val seed = walletRuntime.requiredSeed()
+            val persistedAccounts =
+                accountRepository
+                    .findAllByWalletName(walletName)
+                    .toList()
+                    .associateBy { it.index }
+            val indexes = 0U.toAttoIndex().toIndexRange(toIndex)
+            val savedAccounts =
+                indexes.map { index ->
+                    val address = seed.toSigner(index).address
+                    val persistedAccount = persistedAccounts[index]
+
+                    if (persistedAccount == null) {
+                        accountRepository.save(
+                            Account(
+                                address = address.path,
+                                accountIndex = index.value.toLong(),
+                                walletName = walletName,
+                            ),
+                        )
+                    } else {
+                        if (persistedAccount.address != address.path) {
+                            throw ResponseStatusException(
+                                HttpStatus.CONFLICT,
+                                "Persisted account index $index does not match wallet mnemonic",
+                            )
+                        }
+                        persistedAccount
+                    }
+                }
+            val walletAccounts =
+                walletRuntime
+                    .requiredWallet()
+                    .openAccounts(indexes, seed)
+
+            savedAccounts.forEach { account ->
+                val walletAccount = walletAccounts.getValue(account.index)
+                val accountRuntime = AccountRuntime(account, walletAccount.account)
+                walletRuntime.accounts[accountRuntime.address] = accountRuntime
+                accountsByAddress[accountRuntime.address] = accountRuntime
+            }
+
+            refreshReceiveAddresses()
+
+            logger.info { "Created wallet $walletName accounts through index $toIndex" }
+
+            savedAccounts
+        }
 
     @Transactional
     suspend fun disable(address: AttoAddress): Account {
@@ -404,6 +462,54 @@ class AccountService(
     }
 
     private fun AttoSeed.toAttoWallet(): AttoWallet = AttoWallet.create(nodeClient, walletWorker, this)
+
+    private val Account.index: AttoKeyIndex get() = accountIndex.toUInt().toAttoIndex()
+
+    private suspend fun AttoWallet.openAccounts(
+        indexes: List<AttoKeyIndex>,
+        seed: AttoSeed,
+    ): Map<AttoKeyIndex, AttoWalletAccount> {
+        val missingIndexes = indexes.filterNot { isOpen(it) }
+        val openedAccounts =
+            if (missingIndexes.isEmpty()) {
+                emptyMap()
+            } else {
+                openAccount(missingIndexes).associateBy { it.index }
+            }
+
+        return indexes.associateWith { index ->
+            openedAccounts[index] ?: AttoWalletAccount(
+                index = index,
+                address = seed.toSigner(index).address,
+                account = getAccount(index),
+            )
+        }
+    }
+
+    private fun AttoKeyIndex.toIndexRange(toIndex: AttoKeyIndex): List<AttoKeyIndex> =
+        buildList {
+            var value = this@toIndexRange.value
+            while (value <= toIndex.value) {
+                add(value.toAttoIndex())
+                if (value == UInt.MAX_VALUE) {
+                    break
+                }
+                value++
+            }
+        }
+
+    private fun WalletRuntime.nextIndex(): AttoKeyIndex {
+        val maxIndex = accounts.values.maxOfOrNull { it.index.value }
+        if (maxIndex == null) {
+            return 0U.toAttoIndex()
+        }
+
+        if (maxIndex == UInt.MAX_VALUE) {
+            throw ResponseStatusException(HttpStatus.CONFLICT, "Wallet $name has no available account indexes")
+        }
+
+        return (maxIndex + 1U).toAttoIndex()
+    }
 
     private suspend fun WalletRuntime.openPersistedAccounts() {
         val wallet = wallet ?: return
