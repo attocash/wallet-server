@@ -15,6 +15,7 @@ import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoIndex
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -35,15 +36,16 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import kotlin.time.Duration.Companion.seconds
+import io.swagger.v3.oas.annotations.parameters.RequestBody as OpenApiRequestBody
 
 @RestController
 @RequestMapping
 @Tag(
     name = "Accounts",
     description =
-        "Manage accounts within a wallet. This controller allows clients to create new accounts, enable or disable them, " +
-            "send transactions, and change a representative. Accounts are scoped to wallets and represent individual identities " +
-            "on the Atto network. This interface is designed for applications interacting with locally managed accounts.",
+        "Create and inspect wallet accounts, recover deterministic accounts, toggle account availability, send funds, " +
+            "change representatives, and stream account entries. Account rows are local wallet identities; account details " +
+            "are live chain state once an account has opened on the Atto network.",
 )
 class AccountController(
     private val accountService: AccountService,
@@ -53,16 +55,20 @@ class AccountController(
 ) {
     @PostMapping("/wallets/{walletName}/accounts")
     @Operation(
-        summary = "Create an account",
+        summary = "Create next account",
+        description = "Creates the next deterministic account for the named unlocked wallet and opens it in the local runtime.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Account created",
                 content = [
                     Content(
                         schema = Schema(implementation = AccountCreationResponse::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Wallet is locked"),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
         ],
     )
     suspend fun create(
@@ -72,15 +78,20 @@ class AccountController(
     @PostMapping("/wallets/{walletName}/accounts/ranges/{toIndex}")
     @Operation(
         summary = "Create accounts through index",
+        description = "Creates and opens every deterministic account from index 0 through the requested index.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Accounts created or already present",
                 content = [
                     Content(
-                        schema = Schema(implementation = AccountCreationResponse::class),
+                        array = ArraySchema(schema = Schema(implementation = AccountCreationResponse::class)),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Wallet is locked or toIndex is invalid"),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
+            ApiResponse(responseCode = "409", description = "Persisted account index does not match the wallet mnemonic"),
         ],
     )
     suspend fun createMultiple(
@@ -99,8 +110,9 @@ class AccountController(
                 "querying the node for current account state, and persisting any missing addresses. " +
                 "Recovery starts at the wallet's highest persisted account index and stops after consecutive unopened accounts.",
         requestBody =
-            io.swagger.v3.oas.annotations.parameters.RequestBody(
+            OpenApiRequestBody(
                 required = true,
+                description = "Gap-based recovery settings.",
                 content = [
                     Content(
                         schema = Schema(implementation = AccountRecoveryRequest::class),
@@ -110,12 +122,16 @@ class AccountController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Recovery result",
                 content = [
                     Content(
                         schema = Schema(implementation = AccountRecoveryResponse::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Wallet is locked or gapLimit is invalid"),
+            ApiResponse(responseCode = "404", description = "Wallet does not exist"),
+            ApiResponse(responseCode = "409", description = "Persisted account index does not match the wallet mnemonic"),
         ],
     )
     suspend fun recover(
@@ -150,13 +166,15 @@ class AccountController(
 
     @GetMapping("/wallets/{walletName}/accounts")
     @Operation(
-        summary = "Get accounts for given wallet",
+        summary = "List wallet accounts",
+        description = "Lists persisted local account rows for the named wallet.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Persisted account rows",
                 content = [
                     Content(
-                        schema = Schema(implementation = Account::class),
+                        array = ArraySchema(schema = Schema(implementation = Account::class)),
                     ),
                 ],
             ),
@@ -168,13 +186,21 @@ class AccountController(
 
     @GetMapping("/wallets/accounts/{address}")
     @Operation(
-        summary = "Get account",
+        summary = "Get account row",
+        description = "Retrieves the persisted local account row for an address.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Persisted account row",
+                content = [
+                    Content(
+                        schema = Schema(implementation = Account::class),
+                    ),
+                ],
             ),
             ApiResponse(
                 responseCode = "404",
+                description = "Account row was not found",
             ),
         ],
     )
@@ -184,13 +210,21 @@ class AccountController(
 
     @GetMapping("/wallets/accounts/{address}/details")
     @Operation(
-        summary = "Get account details",
+        summary = "Get live account details",
+        description = "Returns live chain state known by the wallet runtime. Unopened accounts return 404.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Live account state",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AccountDetails::class),
+                    ),
+                ],
             ),
             ApiResponse(
                 responseCode = "404",
+                description = "Account is unknown or has not opened on-chain",
             ),
         ],
     )
@@ -202,10 +236,13 @@ class AccountController(
     @PostMapping("/wallets/accounts/{address}/states/DISABLED")
     @Operation(
         summary = "Disable an account",
+        description = "Marks a persisted account as disabled so it is excluded from automatic receive processing.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Account disabled",
             ),
+            ApiResponse(responseCode = "404", description = "Account row was not found"),
         ],
     )
     suspend fun disable(
@@ -217,10 +254,13 @@ class AccountController(
     @PostMapping("/wallets/accounts/{address}/states/ENABLED")
     @Operation(
         summary = "Enable an account",
+        description = "Clears the disabled marker so the account can participate in automatic receive processing again.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Account enabled",
             ),
+            ApiResponse(responseCode = "404", description = "Account row was not found"),
         ],
     )
     suspend fun enable(
@@ -232,15 +272,29 @@ class AccountController(
     @PostMapping("/wallets/accounts/{address}/transactions/CHANGE")
     @Operation(
         summary = "Change representative",
+        description = "Publishes a representative change block from an opened account in an unlocked wallet.",
+        requestBody =
+            OpenApiRequestBody(
+                required = true,
+                description = "Representative address to assign to the account.",
+                content = [
+                    Content(
+                        schema = Schema(implementation = ChangeRequest::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Representative changed",
                 content = [
                     Content(
                         schema = Schema(implementation = AccountEntry::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Wallet is locked"),
+            ApiResponse(responseCode = "404", description = "Account is unknown or has not opened on-chain"),
         ],
     )
     suspend fun change(
@@ -250,10 +304,14 @@ class AccountController(
 
     @PostMapping("/wallets/accounts/{address}/transactions/SEND")
     @Operation(
-        summary = "Send to target address",
+        summary = "Send funds",
+        description = "Publishes a send block from an opened account in an unlocked wallet.",
         requestBody =
-            io.swagger.v3.oas.annotations.parameters.RequestBody(
+            OpenApiRequestBody(
                 required = true,
+                description =
+                    "Receiver address, amount, and optional last known height. Supplying lastHeight lets clients reject stale " +
+                        "send attempts explicitly.",
                 content = [
                     Content(
                         schema = Schema(implementation = SendRequest::class),
@@ -263,12 +321,16 @@ class AccountController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "Send block published",
                 content = [
                     Content(
                         schema = Schema(implementation = AccountEntry::class),
                     ),
                 ],
             ),
+            ApiResponse(responseCode = "400", description = "Wallet is locked or request values are invalid"),
+            ApiResponse(responseCode = "404", description = "Account is unknown or has not opened on-chain"),
+            ApiResponse(responseCode = "409", description = "Provided lastHeight does not match current account height"),
         ],
     )
     suspend fun send(
@@ -290,16 +352,33 @@ class AccountController(
     @OptIn(FlowPreview::class)
     @PostMapping("/wallets/accounts/entries")
     @Operation(
-        summary = "Get account entries",
-        responses = [
-            ApiResponse(
-                responseCode = "200",
+        summary = "Stream account entries",
+        description =
+            "Streams account entries for known accounts. If no body is provided, all locally opened accounts are queried " +
+                "from height 1 through their current height.",
+        requestBody =
+            OpenApiRequestBody(
+                required = false,
+                description =
+                    "Optional height search bounds. Each fromHeight must be greater than 0; searches beyond the current " +
+                        "account height are ignored.",
                 content = [
                     Content(
-                        schema = Schema(implementation = AccountEntry::class),
+                        schema = Schema(implementation = HeightSearch::class),
                     ),
                 ],
             ),
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Matching account entries",
+                content = [
+                    Content(
+                        array = ArraySchema(schema = Schema(implementation = AccountEntry::class)),
+                    ),
+                ],
+            ),
+            ApiResponse(responseCode = "400", description = "A provided fromHeight is zero"),
         ],
     )
     suspend fun search(
@@ -397,20 +476,34 @@ class AccountController(
         )
 
     @Serializable
+    @Schema(name = "AccountCreationResponse", description = "Created deterministic account address and index")
     data class AccountCreationResponse(
+        @field:Schema(
+            description = "Bare account address path used by API routes",
+            example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+            type = "String",
+        )
         @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val address: AttoAddress,
+        @field:Schema(
+            description = "Display form of the account address",
+            example = "atto://aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+            type = "String",
+        )
         val displayAddress: String,
+        @field:Schema(description = "Deterministic wallet account index", example = "0", type = "Long")
         val index: UInt,
     )
 
     @Serializable
+    @Schema(name = "AccountRecoveryRequest", description = "Gap-based deterministic account recovery request")
     data class AccountRecoveryRequest(
         @field:Schema(description = "Stop after this many consecutive unopened accounts", example = "20", type = "Long")
         val gapLimit: Long,
     )
 
     @Serializable
+    @Schema(name = "AccountRecoveryResponse", description = "Result of a gap-based account recovery scan")
     data class AccountRecoveryResponse(
         @field:Schema(description = "First recovered account index", example = "0", type = "Long")
         val fromIndex: UInt,
@@ -424,28 +517,39 @@ class AccountController(
         val recoveredCount: UInt,
         @field:Schema(description = "Number of requested indexes that were already persisted", example = "2", type = "Long")
         val existingCount: UInt,
+        @field:Schema(description = "Recovered account rows")
         val accounts: List<RecoveredAccountResponse>,
     )
 
     @Serializable
+    @Schema(name = "RecoveredAccountResponse", description = "Recovered account row and scan state")
     data class RecoveredAccountResponse(
         @field:Schema(
-            description = "The recovered account address",
+            description = "Bare recovered account address path used by API routes",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
         @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val address: AttoAddress,
+        @field:Schema(
+            description = "Display form of the recovered account address",
+            example = "atto://aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+            type = "String",
+        )
         val displayAddress: String,
+        @field:Schema(description = "Deterministic wallet account index", example = "0", type = "Long")
         val index: UInt,
+        @field:Schema(description = "Whether the account exists on-chain", example = "true")
         val opened: Boolean,
+        @field:Schema(description = "Whether this request created the local account row", example = "false")
         val recovered: Boolean,
     )
 
     @Serializable
+    @Schema(name = "ChangeRequest", description = "Representative change request")
     data class ChangeRequest(
         @field:Schema(
-            description = "The address of the new representative account",
+            description = "Address of the new representative account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
@@ -454,18 +558,19 @@ class AccountController(
     )
 
     @Serializable
+    @Schema(name = "SendRequest", description = "Send transaction request")
     data class SendRequest(
         @field:Schema(
-            description = "The address of the receiving account",
+            description = "Address of the receiving account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
         @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val receiverAddress: AttoAddress,
-        @field:Schema(description = "Amount", example = "10000", type = "Long")
+        @field:Schema(description = "Amount to send in raw attos", example = "10000", type = "Long")
         val amount: AttoAmount,
         @field:Schema(
-            description = "Optional last known height. Used to avoid double sent",
+            description = "Optional last known account height used to reject stale or duplicate sends",
             example = "1",
             type = "Long",
         )
@@ -473,9 +578,10 @@ class AccountController(
     )
 
     @Serializable
+    @Schema(name = "AccountDetails", description = "Live chain state for an opened account")
     data class AccountDetails(
         @field:Schema(
-            description = "The address of the account",
+            description = "Address of the account",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
@@ -497,7 +603,7 @@ class AccountController(
         @Serializable(with = AttoInstantAsLongSerializer::class)
         val lastTransactionTimestamp: AttoInstant,
         @field:Schema(
-            description = "Representative algorithm",
+            description = "Current representative address",
             example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
             type = "String",
         )
