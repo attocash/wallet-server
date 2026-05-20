@@ -184,6 +184,7 @@ Swagger UI is available at `/` on the public API port. The main public endpoints
 | `GET` | `/wallets/{name}` | Get wallet metadata. |
 | `POST` | `/wallets/{name}` | Create a new wallet with a generated mnemonic and encryption key. |
 | `PUT` | `/wallets/{name}` | Import a wallet from a 24-word mnemonic. |
+| `POST` | `/wallets/{name}/recoveries` | Recover deterministic account rows for an imported wallet using gap-based discovery. |
 | `PUT` | `/wallets/{name}/locks/LOCKED` | Lock a wallet by removing its stored encrypted encryption key. |
 | `PUT` | `/wallets/{name}/locks/UNLOCKED` | Unlock a wallet with its encryption key. |
 
@@ -192,6 +193,7 @@ Swagger UI is available at `/` on the public API port. The main public endpoints
 | Method | Path | Description |
 | --- | --- | --- |
 | `POST` | `/wallets/{walletName}/accounts` | Create the next deterministic account for a wallet. |
+| `POST` | `/wallets/{walletName}/accounts/ranges/{toIndex}` | Create deterministic accounts through an index. |
 | `GET` | `/wallets/{walletName}/accounts` | List persisted accounts for a wallet. |
 | `GET` | `/wallets/accounts/{address}` | Get a persisted account row by address. |
 | `GET` | `/wallets/accounts/{address}/details` | Get live account state known by the wallet runtime. |
@@ -231,6 +233,23 @@ curl -sS -X PUT "$BASE/wallets/treasury" \
 
 `encryptionKey` is optional on import. If omitted, the server generates one and returns it.
 
+### Recover wallet accounts
+
+Recover an already imported and unlocked wallet from its highest persisted account index:
+
+```bash
+curl -sS -X POST "$BASE/wallets/treasury/recoveries" \
+  -H 'content-type: application/json' \
+  -d '{
+    "gapLimit": 20
+  }'
+```
+
+The server derives each address, asks the node for current account state, creates missing account rows, and refreshes the
+wallet runtime so auto-receive can pick up receivables for recovered addresses. Recovery scans until `gapLimit`
+consecutive unopened accounts are found, then creates accounts through the latest opened index it discovered. If no
+opened account is discovered, it creates the initial scanned gap window.
+
 ### Lock and unlock a wallet
 
 ```bash
@@ -247,6 +266,12 @@ curl -sS -X PUT "$BASE/wallets/treasury/locks/UNLOCKED" \
 
 ```bash
 curl -sS -X POST "$BASE/wallets/treasury/accounts"
+```
+
+Create all deterministic accounts through a fixed index:
+
+```bash
+curl -sS -X POST "$BASE/wallets/treasury/accounts/ranges/10"
 ```
 
 The response includes:
@@ -323,11 +348,15 @@ until the wallet is unlocked again with the wallet encryption key.
 ### Account derivation and address discovery
 
 Accounts are deterministic by wallet index. `POST /wallets/{walletName}/accounts` creates the next index based on the
-accounts already persisted for that wallet.
+highest account index already persisted for that wallet.
 
 Importing a mnemonic does not automatically scan every possible derivation index. If you re-import a mnemonic into an
-empty database and need to recreate an expected address range, call the account creation endpoint repeatedly for the
-number of addresses you expect. Existing persisted accounts are reopened automatically when their wallet is unlocked.
+empty database and need to rediscover opened addresses, call `POST /wallets/{walletName}/recoveries` with a `gapLimit`
+to scan from the wallet's highest persisted index until consecutive unopened accounts are found. Recovery creates local
+account rows through the latest opened index it discovers, or the initial scanned gap window when no opened account is
+found. If you already know the account range to open locally, call
+`POST /wallets/{walletName}/accounts/ranges/{toIndex}`. Existing persisted accounts are reopened automatically when
+their wallet is unlocked.
 
 ### Opened vs persisted accounts
 

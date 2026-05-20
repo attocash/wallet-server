@@ -13,6 +13,7 @@ import cash.atto.commons.node.AccountHeightSearch
 import cash.atto.commons.node.AttoNodeOperations
 import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoIndex
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -46,6 +47,7 @@ import kotlin.time.Duration.Companion.seconds
 )
 class AccountController(
     private val accountService: AccountService,
+    private val accountRecoverer: AccountRecoverer,
     private val accountRepository: AccountRepository,
     private val nodeOperations: AttoNodeOperations,
 ) {
@@ -65,12 +67,84 @@ class AccountController(
     )
     suspend fun create(
         @PathVariable walletName: String,
-    ): AccountCreationResponse {
-        val account = accountService.create(walletName)
-        return AccountCreationResponse(
-            address = AttoAddress.parse(account.address),
-            displayAddress = AttoAddress.parse(account.address).toString(),
-            index = account.accountIndex.toUInt(),
+    ): AccountCreationResponse = accountService.create(walletName).toAccountCreationResponse()
+
+    @PostMapping("/wallets/{walletName}/accounts/ranges/{toIndex}")
+    @Operation(
+        summary = "Create accounts through index",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AccountCreationResponse::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun createMultiple(
+        @PathVariable walletName: String,
+        @PathVariable toIndex: Long,
+    ): List<AccountCreationResponse> =
+        accountService
+            .createMultiple(walletName, toIndex.toAttoKeyIndex("toIndex"))
+            .map { it.toAccountCreationResponse() }
+
+    @PostMapping("/wallets/{walletName}/recoveries")
+    @Operation(
+        summary = "Recover wallet accounts",
+        description =
+            "Rebuilds account rows for an already imported and unlocked wallet by deriving deterministic account indexes, " +
+                "querying the node for current account state, and persisting any missing addresses. " +
+                "Recovery starts at the wallet's highest persisted account index and stops after consecutive unopened accounts.",
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                required = true,
+                content = [
+                    Content(
+                        schema = Schema(implementation = AccountRecoveryRequest::class),
+                    ),
+                ],
+            ),
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AccountRecoveryResponse::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun recover(
+        @PathVariable walletName: String,
+        @RequestBody request: AccountRecoveryRequest,
+    ): AccountRecoveryResponse {
+        val recovery =
+            accountRecoverer.recover(
+                walletName = walletName,
+                gapLimit = request.gapLimit.toPositiveUInt("gapLimit"),
+            )
+
+        return AccountRecoveryResponse(
+            fromIndex = recovery.fromIndex.value,
+            toIndex = recovery.toIndex.value,
+            scannedCount = recovery.scannedCount,
+            gapCount = recovery.gapCount,
+            recoveredCount = recovery.recoveredCount,
+            existingCount = recovery.existingCount,
+            accounts =
+                recovery.accounts.map {
+                    RecoveredAccountResponse(
+                        address = AttoAddress.parse(it.account.address),
+                        displayAddress = AttoAddress.parse(it.account.address).toString(),
+                        index = it.account.accountIndex.toUInt(),
+                        opened = it.opened,
+                        recovered = it.recovered,
+                    )
+                },
         )
     }
 
@@ -285,12 +359,87 @@ class AccountController(
         return HeightSearch(nodeSearch)
     }
 
+    private fun Long.toAttoKeyIndex(fieldName: String) =
+        when {
+            this < 0 -> {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$fieldName must be greater than or equal to 0")
+            }
+
+            this > UInt.MAX_VALUE.toLong() -> {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$fieldName must be less than or equal to ${UInt.MAX_VALUE}")
+            }
+
+            else -> {
+                toUInt().toAttoIndex()
+            }
+        }
+
+    private fun Long.toPositiveUInt(fieldName: String) =
+        when {
+            this < 1 -> {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$fieldName must be greater than 0")
+            }
+
+            this > UInt.MAX_VALUE.toLong() -> {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "$fieldName must be less than or equal to ${UInt.MAX_VALUE}")
+            }
+
+            else -> {
+                toUInt()
+            }
+        }
+
+    private fun Account.toAccountCreationResponse(): AccountCreationResponse =
+        AccountCreationResponse(
+            address = AttoAddress.parse(address),
+            displayAddress = AttoAddress.parse(address).toString(),
+            index = accountIndex.toUInt(),
+        )
+
     @Serializable
     data class AccountCreationResponse(
         @Serializable(with = AttoAddressAsPathStringSerializer::class)
         val address: AttoAddress,
         val displayAddress: String,
         val index: UInt,
+    )
+
+    @Serializable
+    data class AccountRecoveryRequest(
+        @field:Schema(description = "Stop after this many consecutive unopened accounts", example = "20", type = "Long")
+        val gapLimit: Long,
+    )
+
+    @Serializable
+    data class AccountRecoveryResponse(
+        @field:Schema(description = "First recovered account index", example = "0", type = "Long")
+        val fromIndex: UInt,
+        @field:Schema(description = "Last recovered account index", example = "10", type = "Long")
+        val toIndex: UInt,
+        @field:Schema(description = "Number of indexes scanned by this recovery", example = "11", type = "Long")
+        val scannedCount: UInt,
+        @field:Schema(description = "Final number of consecutive unopened accounts", example = "3", type = "Long")
+        val gapCount: UInt,
+        @field:Schema(description = "Number of account rows created by this recovery", example = "8", type = "Long")
+        val recoveredCount: UInt,
+        @field:Schema(description = "Number of requested indexes that were already persisted", example = "2", type = "Long")
+        val existingCount: UInt,
+        val accounts: List<RecoveredAccountResponse>,
+    )
+
+    @Serializable
+    data class RecoveredAccountResponse(
+        @field:Schema(
+            description = "The recovered account address",
+            example = "aa36n56jj5scb5ssb42knrtl7bgp5aru2v6pd2jspj5axdw2iukun6r2du4k2",
+            type = "String",
+        )
+        @Serializable(with = AttoAddressAsPathStringSerializer::class)
+        val address: AttoAddress,
+        val displayAddress: String,
+        val index: UInt,
+        val opened: Boolean,
+        val recovered: Boolean,
     )
 
     @Serializable

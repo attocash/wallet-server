@@ -7,6 +7,13 @@ Feature: Wallet
 
     Then account should be created
 
+  Scenario: Wallet accounts can be created through an account index
+    Given the treasury wallet has been imported
+
+    When the treasury wallet creates accounts through account index 2
+
+    Then 3 accounts should exist in treasury wallet
+
   Scenario: Account can be disabled
     Given the treasury wallet has been imported
 
@@ -52,6 +59,41 @@ Feature: Wallet
     When account receives 50 attos
 
     Then account balance is 50 attos
+
+  Scenario: Wallet accounts can be recovered from an imported wallet
+    Given the treasury wallet has been imported
+
+    When the treasury wallet is recovered with gap limit 3
+    Then recovery should start at account index 0
+    And recovery should stop at account index 2
+    And recovery should scan 3 account indexes
+    Then 3 accounts should exist in treasury wallet
+
+    When recovered account index 1 receives 50 attos in treasury wallet
+    Then account balance is 50 attos
+
+  Scenario: Wallet recovery starts from the latest known account
+    Given the treasury wallet has been imported
+    And the treasury wallet creates accounts through account index 2
+
+    When the treasury wallet is recovered with gap limit 3
+    Then recovery should start at account index 2
+    And recovery should stop at account index 4
+    And recovery should scan 3 account indexes
+    Then 5 accounts should exist in treasury wallet
+
+  Scenario: Wallet recovery creates accounts through the latest opened account
+    Given the treasury wallet has been imported
+    And a new address is created in treasury wallet
+
+    When account receives 50 attos
+    Then account balance is 50 attos
+
+    When the treasury wallet is recovered with gap limit 3
+    Then recovery should start at account index 0
+    And recovery should stop at account index 0
+    And recovery should scan 4 account indexes
+    Then 1 accounts should exist in treasury wallet
 
   Scenario: Account should send attos
     Given the treasury wallet has been imported
