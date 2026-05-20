@@ -34,7 +34,7 @@ repositories {
 }
 
 dependencies {
-    val commonsVersion = "6.6.0"
+    val commonsVersion = "6.7.0-SNAPSHOT"
     val cucumberVersion = "7.23.0"
     val springdocVersion = "3.0.1"
     val testcontainersVersion = "2.0.5"

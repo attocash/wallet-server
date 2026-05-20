@@ -19,6 +19,7 @@ atto:
     base-url: ${NODE_BASE_URL}
   work:
     base-url: ${WORK_BASE_URL}
+    timeout-in-seconds: ${WORK_TIMEOUT_IN_SECONDS:300}
   wallet:
     cha-cha20-encryption-key: ${CHA_CHA20_KEY_ENCRYPTION_KEY}
   notification:
