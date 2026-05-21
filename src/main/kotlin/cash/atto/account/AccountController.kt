@@ -8,6 +8,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoInstantAsLongSerializer
+import cash.atto.commons.AttoKeyIndex
 import cash.atto.commons.AttoVersion
 import cash.atto.commons.node.AccountHeightSearch
 import cash.atto.commons.node.AttoNodeOperations
@@ -145,18 +146,18 @@ class AccountController(
             )
 
         return AccountRecoveryResponse(
-            fromIndex = recovery.fromIndex.value,
-            toIndex = recovery.toIndex.value,
-            scannedCount = recovery.scannedCount,
-            gapCount = recovery.gapCount,
-            recoveredCount = recovery.recoveredCount,
-            existingCount = recovery.existingCount,
+            fromIndex = recovery.fromIndex,
+            toIndex = recovery.toIndex,
+            scannedCount = recovery.scannedCount.toLong(),
+            gapCount = recovery.gapCount.toLong(),
+            recoveredCount = recovery.recoveredCount.toLong(),
+            existingCount = recovery.existingCount.toLong(),
             accounts =
                 recovery.accounts.map {
                     RecoveredAccountResponse(
                         address = AttoAddress.parse(it.account.address),
                         displayAddress = AttoAddress.parse(it.account.address).toString(),
-                        index = it.account.accountIndex.toUInt(),
+                        index = it.account.accountIndex.toUInt().toAttoIndex(),
                         opened = it.opened,
                         recovered = it.recovered,
                     )
@@ -472,7 +473,7 @@ class AccountController(
         AccountCreationResponse(
             address = AttoAddress.parse(address),
             displayAddress = AttoAddress.parse(address).toString(),
-            index = accountIndex.toUInt(),
+            index = accountIndex.toUInt().toAttoIndex(),
         )
 
     @Serializable
@@ -492,7 +493,7 @@ class AccountController(
         )
         val displayAddress: String,
         @field:Schema(description = "Deterministic wallet account index", example = "0", type = "Long")
-        val index: UInt,
+        val index: AttoKeyIndex,
     )
 
     @Serializable
@@ -506,17 +507,17 @@ class AccountController(
     @Schema(name = "AccountRecoveryResponse", description = "Result of a gap-based account recovery scan")
     data class AccountRecoveryResponse(
         @field:Schema(description = "First recovered account index", example = "0", type = "Long")
-        val fromIndex: UInt,
+        val fromIndex: AttoKeyIndex,
         @field:Schema(description = "Last recovered account index", example = "10", type = "Long")
-        val toIndex: UInt,
+        val toIndex: AttoKeyIndex,
         @field:Schema(description = "Number of indexes scanned by this recovery", example = "11", type = "Long")
-        val scannedCount: UInt,
+        val scannedCount: Long,
         @field:Schema(description = "Final number of consecutive unopened accounts", example = "3", type = "Long")
-        val gapCount: UInt,
+        val gapCount: Long,
         @field:Schema(description = "Number of account rows created by this recovery", example = "8", type = "Long")
-        val recoveredCount: UInt,
+        val recoveredCount: Long,
         @field:Schema(description = "Number of requested indexes that were already persisted", example = "2", type = "Long")
-        val existingCount: UInt,
+        val existingCount: Long,
         @field:Schema(description = "Recovered account rows")
         val accounts: List<RecoveredAccountResponse>,
     )
@@ -538,7 +539,7 @@ class AccountController(
         )
         val displayAddress: String,
         @field:Schema(description = "Deterministic wallet account index", example = "0", type = "Long")
-        val index: UInt,
+        val index: AttoKeyIndex,
         @field:Schema(description = "Whether the account exists on-chain", example = "true")
         val opened: Boolean,
         @field:Schema(description = "Whether this request created the local account row", example = "false")
