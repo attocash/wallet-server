@@ -157,7 +157,10 @@ class AccountController(
                     RecoveredAccountResponse(
                         address = AttoAddress.parse(it.account.address),
                         displayAddress = AttoAddress.parse(it.account.address).toString(),
-                        index = it.account.accountIndex.toUInt().toAttoIndex(),
+                        index =
+                            it.account.accountIndex
+                                .toUInt()
+                                .toAttoIndex(),
                         opened = it.opened,
                         recovered = it.recovered,
                     )

@@ -12,6 +12,7 @@ import cash.atto.commons.AttoUnit
 import cash.atto.commons.node.AccountHeightSearch
 import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoIndex
 import cash.atto.getForObject
 import cash.atto.node.TestNodeSupport
 import cash.atto.postForJsonArray
@@ -68,15 +69,15 @@ class AccountStepDefinition(
     @When("the {word} wallet is recovered with gap limit {int}")
     fun recoverUntilGap(
         walletName: String,
-        gapLimit: Int,
+        gapLimit: Long,
     ) {
         val response =
             webTestClient.postForObject<AccountController.AccountRecoveryResponse>(
                 "/wallets/$walletName/recoveries",
-                AccountController.AccountRecoveryRequest(gapLimit = gapLimit.toLong()),
+                AccountController.AccountRecoveryRequest(gapLimit = gapLimit),
             )
 
-        assertEquals(gapLimit.toUInt(), response.gapCount)
+        assertEquals(gapLimit, response.gapCount)
         lastRecovery = response
     }
 
@@ -208,21 +209,21 @@ class AccountStepDefinition(
     fun checkRecoveryStartIndex(fromIndex: Int) {
         val recovery = lastRecovery ?: error("No recovery captured")
 
-        assertEquals(fromIndex.toUInt(), recovery.fromIndex)
+        assertEquals(fromIndex.toAttoIndex(), recovery.fromIndex)
     }
 
     @Then("recovery should stop at account index {int}")
     fun checkRecoveryStopIndex(toIndex: Int) {
         val recovery = lastRecovery ?: error("No recovery captured")
 
-        assertEquals(toIndex.toUInt(), recovery.toIndex)
+        assertEquals(toIndex.toAttoIndex(), recovery.toIndex)
     }
 
     @Then("recovery should scan {int} account indexes")
-    fun checkRecoveryScannedCount(scannedCount: Int) {
+    fun checkRecoveryScannedCount(scannedCount: Long) {
         val recovery = lastRecovery ?: error("No recovery captured")
 
-        assertEquals(scannedCount.toUInt(), recovery.scannedCount)
+        assertEquals(scannedCount, recovery.scannedCount)
     }
 
     @Then("account balance is {word} attos")
