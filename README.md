@@ -99,13 +99,13 @@ the Atto work HTTP API. The test suite starts Commons mocks for both services au
 ### 3. Run the server
 
 ```bash
-GRADLE_USER_HOME=/tmp/gradle-home ./gradlew bootRun --no-daemon
+./gradlew bootRun --no-daemon
 ```
 
 If your local node already uses port `8080`, run the wallet server on a different port:
 
 ```bash
-GRADLE_USER_HOME=/tmp/gradle-home ./gradlew bootRun --no-daemon \
+./gradlew bootRun --no-daemon \
   --args='--server.port=8090 --management.server.port=8091'
 ```
 
@@ -401,7 +401,7 @@ Main packages:
 Use a writable Gradle home outside the repository:
 
 ```bash
-GRADLE_USER_HOME=/tmp/gradle-home ./gradlew test --no-daemon --fail-fast
+./gradlew test --no-daemon --fail-fast
 ```
 
 The Cucumber tests start MySQL with Testcontainers and use Commons mock services:
@@ -415,8 +415,7 @@ in-memory fake.
 Useful broader checks:
 
 ```bash
-GRADLE_USER_HOME=/tmp/gradle-home ./gradlew build --no-daemon
-git diff --check
+./gradlew build --no-daemon
 ```
 
 ## Docker and native image
@@ -426,7 +425,7 @@ The container image expects a native GraalVM binary at `build/native/nativeCompi
 Build the native binary:
 
 ```bash
-GRADLE_USER_HOME=/tmp/gradle-home ./gradlew nativeCompile --no-daemon
+./gradlew nativeCompile --no-daemoqn
 ```
 
 Build the container:

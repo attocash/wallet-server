@@ -36,7 +36,7 @@ repositories {
 dependencies {
     val commonsVersion = "6.7.0-SNAPSHOT"
     val cucumberVersion = "7.23.0"
-    val springdocVersion = "3.0.1"
+    val springdocVersion = "3.0.3"
     val testcontainersVersion = "2.0.5"
 
     implementation("cash.atto:commons-spring-boot-starter:$commonsVersion")
