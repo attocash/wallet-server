@@ -37,7 +37,14 @@ dependencies {
     val commonsVersion = "6.7.0-SNAPSHOT"
     val cucumberVersion = "7.34.3"
     val springdocVersion = "3.0.3"
+    val swaggerCoreVersion = "2.2.50"
     val testcontainersVersion = "2.0.5"
+
+    constraints {
+        implementation("io.swagger.core.v3:swagger-core-jakarta:$swaggerCoreVersion") {
+            because("Springdoc 3.0.3 pulls 2.2.47, which emits invalid OpenAPI 3.1 schema defaults for request bodies.")
+        }
+    }
 
     implementation("cash.atto:commons-spring-boot-starter:$commonsVersion")
 

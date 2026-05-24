@@ -12,6 +12,9 @@ spring:
     url: jdbc:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
     user: ${ATTO_DB_USER:root}
     password: ${ATTO_DB_PASSWORD:}
+  web:
+    error:
+      include-message: always
 
 atto:
   network: ${NETWORK}
@@ -34,8 +37,6 @@ springdoc:
 
 server:
   port: 8080
-  error:
-    include-message: always
 
 management:
   server:
