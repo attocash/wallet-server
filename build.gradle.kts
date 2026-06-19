@@ -37,7 +37,7 @@ dependencies {
     val commonsVersion = "6.7.1"
     val cucumberVersion = "7.34.3"
     val springdocVersion = "3.0.3"
-    val swaggerCoreVersion = "2.2.50"
+    val swaggerCoreVersion = "2.2.51"
     val testcontainersVersion = "2.0.5"
 
     constraints {
