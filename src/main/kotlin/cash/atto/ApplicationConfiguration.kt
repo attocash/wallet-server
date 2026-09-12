@@ -19,15 +19,19 @@ class ApplicationConfiguration {
                 Info()
                     .title("Atto Wallet Server API")
                     .description(
-                        "The Atto Wallet Server provides a simple, self-hostable interface to manage accounts, " +
-                            "send and receive funds, and track balances within the Atto network. " +
-                            "It is designed for use by applications, abstracting away the complexity of directly " +
-                            "interacting with the node.",
+                        "Reference Atto Wallet Server API endpoints for wallet creation, import and locking, " +
+                            "account management, sends, balances and account history.\n\n" +
+                            "This is a self-hosted service for applications, not the " +
+                            "[browser wallet](https://atto.cash/wallet) or a CLI/MCP wallet profile. " +
+                            "Match this reference to the Wallet Server release you deploy. " +
+                            "Operators are responsible for API access controls, wallet secrets and payment authorization. " +
+                            "Review the database, node and work-service requirements in the " +
+                            "[Wallet Server setup guide](https://atto.cash/docs/integration/wallet-server).",
                     ).version(version),
             ).externalDocs(
                 ExternalDocumentation()
-                    .description("Integration Docs")
-                    .url("https://atto.cash/docs/integration"),
+                    .description("Atto Wallet Server setup and deployment")
+                    .url("https://atto.cash/docs/integration/wallet-server"),
             )
     }
 }
