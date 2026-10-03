@@ -71,7 +71,7 @@ class WalletService(
         val mnemonic =
             try {
                 val entropy = ChaCha20.decrypt(wallet.encryptedEntropy, encryptionKey)
-                AttoMnemonic(entropy)
+                AttoMnemonic.fromEntropy(entropy)
             } catch (e: Exception) {
                 throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid encryption key for $name", e)
             }
@@ -96,7 +96,7 @@ class WalletService(
 
         val entropy = ChaCha20.decrypt(encryptedEntropy, encryptionKey.toHex())
 
-        return AttoMnemonic(entropy)
+        return AttoMnemonic.fromEntropy(entropy)
     }
 
     suspend fun getMnemonicMap(): Map<String, AttoMnemonic?> {

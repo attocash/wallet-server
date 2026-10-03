@@ -130,7 +130,7 @@ class WalletController(
     ): ResponseEntity<WalletCreationResponse> {
         val mnemonic =
             try {
-                AttoMnemonic(request.mnemonic)
+                AttoMnemonic.fromPhrase(request.mnemonic)
             } catch (e: Exception) {
                 logger.warn(e) { "Invalid mnemonic" }
                 return ResponseEntity
@@ -250,7 +250,7 @@ class WalletController(
         @field:Schema(
             description =
                 "Optional 32-byte hex encoded Cha Cha 20 key used to encrypt the mnemonic at rest. " +
-                    "If omitted, the server generates one.",
+                    "If omitted, the server generates one and returns it in the response.",
             example = "0000000000000000000000000000000000000000000000000000000000000000",
         )
         val encryptionKey: String? = null,
