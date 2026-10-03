@@ -22,6 +22,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
+          version: '25i-latest'
           java-version: '25'
           native-image-musl: true
           native-image-enable-sbom: true
